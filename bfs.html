@@ -1,0 +1,1212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>bingleton’s fight simulator — single file (no external files)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  html,body { height:100%; margin:0; background:#0b0b11; color:#eee; font-family: Inter, Roboto, Arial, sans-serif; -webkit-font-smoothing:antialiased; }
+  #ui { position: absolute; left:12px; top:12px; z-index: 10; pointer-events:none; }
+  #controls { position: absolute; right:12px; top:12px; text-align:right; color:#ccc; font-size:13px; pointer-events:none; }
+  canvas { display:block; margin: 0 auto; background: linear-gradient(#0b0b11,#0a0a12); box-shadow: 0 8px 30px rgba(0,0,0,0.6); border: 6px solid #0f1720; }
+  .note { text-align:center; margin-top:10px; color:#bbb; font-size:14px; }
+  a { color:#8adfff; }
+</style>
+</head>
+<body>
+
+<div id="ui"></div>
+<div id="controls">
+  WASD = Move · J = Light · K = Heavy · Specials per char: Q/E/R · TAB to swap character
+</div>
+<canvas id="gameCanvas" width="1152" height="648"></canvas>
+<div class="note">bingleton’s fight simulator — single-file prototype. No external files. Enjoy. 👀🔥</div>
+
+<script>
+/* ============================================================================
+   bingleton's fight simulator
+   Single-file HTML/JS game engine (canvas) — no external files
+   Features: WASD, J/K attacks, per-character specials Q/E/R, open map, pooling
+   Author: ChatGPT (code for Marshall / user)
+   ============================================================================ */
+
+/* ======================
+   Config & constants
+   ====================== */
+const CANVAS_W = 1152;
+const CANVAS_H = 648;
+const WORLD_CHUNKS = 6;
+const CHUNK_W = 1600;
+const WORLD_W = CHUNK_W * WORLD_CHUNKS;
+const GROUND_Y = CANVAS_H - 72;
+const GRAVITY = 2000; // px/s^2
+const TIME_STEP = 1 / 60;
+const MAX_DT = 0.032; // clamp dt
+
+// Player defaults
+const PLAYER_DEFAULTS = {
+  w: 52, h: 92,
+  speed: 320,
+  jumpVel: 640,
+  maxHP: 120,
+  attackCooldown: 0.22,
+  heavyCooldown: 0.72,
+  specialCost: 40,
+  specialMax: 100
+};
+
+/* ======================
+   Utility helpers
+   ====================== */
+function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function rnd(min, max){ return Math.random() * (max - min) + min; }
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function now(){ return performance.now() / 1000; }
+
+/* Rectangle AABB collision */
+function rectOverlap(a, b){
+  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+}
+
+/* Simple event log (for debug hud) */
+class Logger {
+  constructor(maxLines=6){ this.lines = []; this.max = maxLines; }
+  push(s){ this.lines.unshift(s); if (this.lines.length>this.max) this.lines.length=this.max; }
+  get(){ return this.lines; }
+}
+
+/* ======================
+   Input system
+   ====================== */
+class Input {
+  constructor(){
+    this.keys = {};
+    this.prev = {};
+    this.listeners();
+  }
+  listeners(){
+    window.addEventListener('keydown', e=>{
+      this.keys[e.key.toLowerCase()] = true;
+    });
+    window.addEventListener('keyup', e=>{
+      this.keys[e.key.toLowerCase()] = false;
+    });
+  }
+  down(key){ return !!this.keys[key.toLowerCase()]; }
+  pressed(key){ // simple edge detection
+    const k = key.toLowerCase();
+    const pressed = !!this.keys[k] && !this.prev[k];
+    return pressed;
+  }
+  refresh(){ // call at end of frame to copy state
+    this.prev = Object.assign({}, this.keys);
+  }
+}
+
+/* ======================
+   Pooling
+   ====================== */
+class Pool {
+  constructor(createFn, initial=10){
+    this.createFn = createFn;
+    this.items = [];
+    for (let i=0;i<initial;i++) this.items.push(createFn());
+  }
+  rent(){
+    return this.items.length ? this.items.pop() : this.createFn();
+  }
+  release(obj){
+    if (obj.reset) obj.reset();
+    this.items.push(obj);
+  }
+}
+
+/* ======================
+   Main Game class
+   ====================== */
+class Game {
+  constructor(canvas){
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d', { alpha:false });
+    this.input = new Input();
+    this.logger = new Logger(8);
+    this.last = performance.now();
+    this.acc = 0;
+    this.cameraX = 0;
+    this.entities = []; // all active entities except player
+    this.enemies = [];
+    this.items = [];
+    this.hitboxes = [];
+    this.enemyPool = new Pool(()=> new Enemy(this), 40);
+    this.itemPool = new Pool(()=> new Item(this), 12);
+    this.hitboxPool = new Pool(()=> new Hitbox(this), 40);
+    this.particlePool = new Pool(()=> new Particle(this), 80);
+    this.effects = [];
+    this.spawnZones = [];
+    this.setupWorld();
+    this.setupPlayer();
+    this.setupSpawn();
+    this.hud = document.getElementById('ui');
+    this.focused = true;
+    this.paused = false;
+    window.addEventListener('blur', ()=>this.focused=false);
+    window.addEventListener('focus', ()=>this.focused=true);
+    this.loop = this.loop.bind(this);
+    requestAnimationFrame(this.loop);
+  }
+
+  setupWorld(){
+    // create some obstacles/platforms per chunk
+    this.platforms = [];
+    for (let i=0;i<WORLD_CHUNKS;i++){
+      const x0 = i*CHUNK_W;
+      // ground is continuous; just store as rectangle for collision
+      this.platforms.push({x:x0, y: GROUND_Y, w:CHUNK_W, h: CANVAS_H - GROUND_Y + 100});
+      // add some low platforms & crates
+      for (let c=0;c<6;c++){
+        const w = Math.floor(rnd(80,160));
+        const h = Math.floor(rnd(24,36));
+        const x = Math.floor(x0 + rnd(80, CHUNK_W - 160));
+        const y = Math.floor(GROUND_Y - rnd(72, 220));
+        this.platforms.push({x:x, y:y, w:w, h:h});
+      }
+      // define spawn zone for this chunk
+      this.spawnZones.push({x0:x0+80, x1:x0 + CHUNK_W - 80, intensity: 1 + Math.floor(rnd(0,3))});
+    }
+  }
+
+  setupPlayer(){
+    // character profiles and per-character special keys
+    this.characters = [
+      { id:'kaze', name:'Kaze', color:'#6fd3ff', speed:360, power:9, defense:3, specialKey:'q', specialName:'Windstep' },
+      { id:'rin',  name:'Rin',  color:'#ff9aa2', speed:280, power:12, defense:5, specialKey:'e', specialName:'Crimson Palm' },
+      { id:'tsu',  name:'Tsu',  color:'#c48aff', speed:220, power:18, defense:9, specialKey:'r', specialName:'Titan Toss' }
+    ];
+    this.selected = 0;
+    const startX = Math.floor(WORLD_W/2);
+    this.player = new Player(this, startX, GROUND_Y - PLAYER_DEFAULTS.h, this.characters[this.selected]);
+  }
+
+  setupSpawn(){
+    this.nextSpawnTimer = 0;
+    this.spawnInterval = 1.2;
+    // initial wave
+    for (let i=0;i<3;i++) this.spawnEnemyAt(Math.floor(WORLD_W/2 + rnd(-220,220)), GROUND_Y - 48);
+  }
+
+  spawnEnemyAt(x,y, type='thug'){
+    const e = this.enemyPool.rent();
+    e.spawn(x,y,type);
+    this.enemies.push(e);
+  }
+
+  spawnItem(x,y, kind='coin'){
+    const it = this.itemPool.rent();
+    it.spawn(x,y,kind);
+    this.items.push(it);
+  }
+
+  spawnParticle(x,y, color, life=0.4){
+    const p = this.particlePool.rent();
+    p.spawn(x,y,color,life);
+    this.effects.push(p);
+  }
+
+  spawnHitbox(owner, x,y,w,h, damage, opts={}){
+    const hb = this.hitboxPool.rent();
+    hb.spawn(owner,x,y,w,h,damage,opts);
+    this.hitboxes.push(hb);
+    return hb;
+  }
+
+  removeEnemy(e){
+    const idx = this.enemies.indexOf(e);
+    if (idx>=0) this.enemies.splice(idx,1);
+    this.enemyPool.release(e);
+  }
+
+  removeItem(it){
+    const idx = this.items.indexOf(it);
+    if (idx>=0) this.items.splice(idx,1);
+    this.itemPool.release(it);
+  }
+
+  removeHitbox(hb){
+    const idx = this.hitboxes.indexOf(hb);
+    if (idx>=0) this.hitboxes.splice(idx,1);
+    this.hitboxPool.release(hb);
+  }
+
+  removeEffect(e){
+    const idx = this.effects.indexOf(e);
+    if (idx>=0) this.effects.splice(idx,1);
+    this.particlePool.release(e);
+  }
+
+  loop(){
+    const nowMs = performance.now();
+    let dt = (nowMs - this.last) / 1000;
+    if (dt > MAX_DT) dt = MAX_DT;
+    this.last = nowMs;
+
+    if (!this.paused && this.focused) {
+      this.update(dt);
+      this.render();
+    } else {
+      // still render paused overlay
+      this.render();
+    }
+
+    this.input.refresh();
+    requestAnimationFrame(this.loop);
+  }
+
+  update(dt){
+    // fixed-step style accumulation (simple)
+    this.acc += dt;
+    while (this.acc >= TIME_STEP){
+      this._updateStep(TIME_STEP);
+      this.acc -= TIME_STEP;
+    }
+  }
+
+  _updateStep(step){
+    // player update
+    this.player.update(step, this.input);
+
+    // camera follow with deadzone
+    const camTargetX = clamp(this.player.x - CANVAS_W*0.45, 0, WORLD_W - CANVAS_W);
+    // smooth camera
+    this.cameraX += (camTargetX - this.cameraX) * Math.min(1, 8 * step);
+
+    // enemies update
+    for (let i=this.enemies.length-1;i>=0;i--){
+      const e = this.enemies[i];
+      e.update(step);
+      // off world cleanup
+      if (e.x < -200 || e.x > WORLD_W + 200) {
+        this.removeEnemy(e);
+      }
+    }
+
+    // items update
+    for (let i=this.items.length-1;i>=0;i--){
+      const it = this.items[i];
+      it.update(step);
+    }
+
+    // hitboxes update & collisions
+    for (let i=this.hitboxes.length-1;i>=0;i--){
+      const hb = this.hitboxes[i];
+      hb.update(step);
+      if (!hb.active){
+        this.removeHitbox(hb);
+        continue;
+      }
+      // hit enemies (owner may be player or enemy)
+      if (hb.owner.type === 'player'){
+        for (let j=0;j<this.enemies.length;j++){
+          const en = this.enemies[j];
+          if (!en.alive) continue;
+          if (!en.invulnerable && rectOverlap(hb.getRect(), en.getRect())){
+            // single-hit per hitbox: apply and mark hit frame
+            hb.onHit(en);
+          }
+        }
+      } else if (hb.owner.type === 'enemy'){
+        // check player
+        if (!this.player.invulnerable && rectOverlap(hb.getRect(), this.player.getRect())){
+          hb.onHit(this.player);
+        }
+      }
+    }
+
+    // enemy AI occasionally spawn new enemies
+    this.nextSpawnTimer -= step;
+    if (this.nextSpawnTimer <= 0){
+      this.nextSpawnTimer = this.spawnInterval + rnd(-0.7, 1.0);
+      // spawn near player but within their chunk
+      const chunk = Math.floor(this.player.x / CHUNK_W);
+      const zone = this.spawnZones[chunk];
+      if (zone){
+        const sx = Math.floor(rnd(zone.x0, zone.x1));
+        this.spawnEnemyAt(sx, GROUND_Y - 48, pick(['thug','knife','heavy']));
+      }
+    }
+
+    // effects update
+    for (let i=this.effects.length-1;i>=0;i--){
+      const p = this.effects[i];
+      p.update(step);
+      if (!p.alive) this.removeEffect(p);
+    }
+
+    // debug logger rotate
+    // this.logger.push(`entities ${this.enemies.length} items ${this.items.length}`);
+  }
+
+  render(){
+    const ctx = this.ctx;
+    // clear
+    ctx.fillStyle = '#0a0b10';
+    ctx.fillRect(0,0, CANVAS_W, CANVAS_H);
+
+    // draw parallax background
+    this.renderBackground(ctx);
+
+    // world translate by cameraX
+    ctx.save();
+    ctx.translate(-this.cameraX, 0);
+
+    // draw platforms
+    this.renderPlatforms(ctx);
+
+    // draw items
+    for (let it of this.items) it.draw(ctx);
+
+    // draw enemies
+    for (let e of this.enemies) e.draw(ctx);
+
+    // draw player (on top)
+    this.player.draw(ctx);
+
+    // draw hitboxes (optional debug)
+    // for (let hb of this.hitboxes) hb.draw(ctx);
+
+    // draw effects on top
+    for (let p of this.effects) p.draw(ctx);
+
+    ctx.restore();
+
+    // HUD overlay (screen-space)
+    this.renderHUD(ctx);
+  }
+
+  renderBackground(ctx){
+    // skyline & parallax
+    // dark skyline blocks
+    ctx.save();
+    const grad = ctx.createLinearGradient(0,0,0,CANVAS_H);
+    grad.addColorStop(0,'#0b0d14');
+    grad.addColorStop(1,'#0a0b10');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+    // some back buildings parallax
+    for (let i=0;i<20;i++){
+      const x = ((i*540) - (this.cameraX*0.25)) % (WORLD_W) - 120;
+      const bw = 120 + (i%5)*20;
+      const bh = 140 + (i%7)*40;
+      const y = GROUND_Y - bh - 160;
+      ctx.fillStyle = '#0e1620';
+      ctx.fillRect(x, y, bw, bh);
+    }
+    ctx.restore();
+  }
+
+  renderPlatforms(ctx){
+    // ground strips and crates
+    for (let p of this.platforms){
+      // simple rectangle
+      ctx.fillStyle = '#232833';
+      ctx.fillRect(p.x, p.y, p.w, p.h);
+      // top highlight
+      ctx.fillStyle = '#2f3440';
+      ctx.fillRect(p.x, p.y, p.w, 6);
+    }
+    // some ambient decals
+    ctx.fillStyle = '#11161a';
+    for (let i=0;i<50;i++){
+      const x = (i*130) % WORLD_W;
+      ctx.fillRect(x + 8, GROUND_Y - 12, 8, 6);
+    }
+  }
+
+  renderHUD(ctx){
+    // HUD panel in top-left (screen space)
+    const px = 16, py = 12;
+    // background
+    ctx.fillStyle = 'rgba(6,8,10,0.6)';
+    ctx.fillRect(px-8, py-8, 420, 92);
+    // player name + char
+    ctx.fillStyle = '#fff';
+    ctx.font = '16px Inter, Arial';
+    ctx.fillText(`CHAR: ${this.player.profile.name}  (Special: ${this.player.profile.specialKey.toUpperCase()} - ${this.player.profile.specialName})`, px, py + 12);
+    // HP bar
+    const hpW = 300;
+    const hpX = px, hpY = py + 28;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(hpX, hpY, hpW, 18);
+    ctx.fillStyle = '#ff6b6b';
+    const hpRatio = clamp(this.player.hp / this.player.maxHP, 0, 1);
+    ctx.fillRect(hpX, hpY, hpW * hpRatio, 18);
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(hpX, hpY, hpW, 18);
+    ctx.fillStyle = '#fff';
+    ctx.font = '13px monospace';
+    ctx.fillText(`HP ${Math.round(this.player.hp)} / ${this.player.maxHP}`, hpX+6, hpY+13);
+
+    // Special bar
+    const spY = hpY + 24;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(hpX, spY, hpW, 12);
+    ctx.fillStyle = '#7afcff';
+    const spRatio = clamp(this.player.special / this.player.specialMax, 0, 1);
+    ctx.fillRect(hpX, spY, hpW * spRatio, 12);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(`SP ${Math.floor(this.player.special)} / ${this.player.specialMax}`, hpX+6, spY+10);
+
+    // combo counter & money to the right
+    ctx.fillStyle = '#fff';
+    ctx.font = '18px monospace';
+    ctx.fillText(`Combo: ${this.player.comboCounter}`, hpX + 324, py + 28);
+    ctx.fillText(`¥ ${this.player.money}`, hpX + 324, py + 56);
+
+    // mini instructions (right side)
+    ctx.fillStyle = '#bbb';
+    ctx.font = '13px Inter, Arial';
+    ctx.fillText('W A S D = Move | J = Light | K = Heavy | TAB = Swap', CANVAS_W - 420, py + 12);
+    ctx.fillText('Q/E/R = Special (per character)', CANVAS_W - 420, py + 34);
+
+    // small notifications (logger)
+    const lines = this.logger.get();
+    ctx.fillStyle = '#ddd';
+    ctx.font = '12px monospace';
+    for (let i=0;i<lines.length;i++){
+      ctx.fillText(lines[i], px, CANVAS_H - 24 - i*16);
+    }
+
+    // debug show camera pos and entity counts
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(CANVAS_W - 220, CANVAS_H - 72, 208, 60);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px monospace';
+    ctx.fillText(`CamX: ${Math.floor(this.cameraX)}  PlayerX: ${Math.floor(this.player.x)}`, CANVAS_W - 210, CANVAS_H - 52);
+    ctx.fillText(`Enemies: ${this.enemies.length}  Items: ${this.items.length}`, CANVAS_W - 210, CANVAS_H - 34);
+    ctx.fillText(`Hitboxes: ${this.hitboxes.length}`, CANVAS_W - 210, CANVAS_H - 18);
+  }
+}
+
+/* ======================
+   Player class
+   ====================== */
+class Player {
+  constructor(game, x,y, profile){
+    this.game = game;
+    this.x = x;
+    this.y = y;
+    this.w = PLAYER_DEFAULTS.w;
+    this.h = PLAYER_DEFAULTS.h;
+    this.vx = 0;
+    this.vy = 0;
+    this.onGround = false;
+    this.profile = profile;
+    this.type = 'player';
+    this.color = profile.color;
+    this.speed = profile.speed;
+    this.jumpVel = PLAYER_DEFAULTS.jumpVel;
+    this.maxHP = PLAYER_DEFAULTS.maxHP + (profile.defense * 3);
+    this.hp = this.maxHP;
+    this.attackCooldown = PLAYER_DEFAULTS.attackCooldown;
+    this.heavyCooldown = PLAYER_DEFAULTS.heavyCooldown;
+    this.attackTimer = 0;
+    this.heavyTimer = 0;
+    this.facing = 1; // 1 = right, -1 = left
+    this.isAttacking = false;
+    this.invulnerable = false;
+    this.lastDamaged = -1;
+    this.damageCooldown = 0.7;
+    this.special = 0;
+    this.specialMax = PLAYER_DEFAULTS.specialMax;
+    this.specialGain = 1.0;
+    this.comboCounter = 0;
+    this.comboTimer = 0;
+    this.comboExpire = 1.0; // seconds
+    this.money = 0;
+    this.alive = true;
+    this.animState = 'idle'; // for simple frame timing
+    this.animTimer = 0;
+    this.spriteSkew = 0;
+
+    // small list of active effects (e.g., special visual)
+    this.effects = [];
+  }
+
+  getRect(){ return {x: this.x - this.w/2, y: this.y - this.h, w: this.w, h: this.h}; }
+
+  update(dt, input){
+    if (!this.alive) return;
+    // movement input: WASD
+    let left = input.down('a');
+    let right = input.down('d');
+    let up = input.pressed('w') || input.down('w');
+    let down = input.down('s');
+
+    // horizontal acceleration (instant)
+    let desired = 0;
+    if (left) desired -= 1;
+    if (right) desired += 1;
+    this.vx = desired * this.profile.speed;
+    if (desired !== 0) this.facing = desired;
+
+    // jump
+    if (input.pressed('w') && this.onGround){
+      this.vy = -this.jumpVel;
+      this.onGround = false;
+      this.game.spawnParticle(this.x, this.y+4, '#ffffff', 0.28);
+      this.animState = 'jump';
+      this.animTimer = 0.18;
+    }
+
+    // gravity
+    this.vy += GRAVITY * dt;
+
+    // positional integration
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // collisions with world platforms (very simple AABB sweep)
+    this.resolvePlatforms();
+
+    // clamp into world
+    this.x = clamp(this.x, 20, WORLD_W - 20);
+
+    // attacks: J light, K heavy
+    const t = now();
+    if (input.pressed('j') && t > this.attackTimer){
+      this.lightAttack();
+      this.attackTimer = t + this.attackCooldown;
+    }
+    if (input.pressed('k') && t > this.heavyTimer){
+      this.heavyAttack();
+      this.heavyTimer = t + this.heavyCooldown;
+    }
+
+    // special for this character: key is profile.specialKey
+    if (input.pressed(this.profile.specialKey)){
+      if (this.special >= PLAYER_DEFAULTS.specialCost){
+        this.useSpecial();
+      } else {
+        this.game.logger.push('Not enough special!');
+      }
+    }
+
+    // combo timeout
+    if (this.comboCounter > 0 && (now() - this.comboTimer) > this.comboExpire){
+      this.comboCounter = 0;
+    }
+
+    // small animation timer decrement
+    if (this.animTimer > 0) this.animTimer -= dt;
+
+    // update effects
+    for (let i=this.effects.length-1;i>=0;i--){
+      const ef = this.effects[i];
+      ef.time -= dt;
+      if (ef.time <= 0) this.effects.splice(i,1);
+    }
+  }
+
+  resolvePlatforms(){
+    // simple AABB overlaps against platforms: if below top of platform and overlapping horizontally and falling, snap to top.
+    const nextY = this.y;
+    const rect = this.getRect();
+    rect.x = this.x - this.w/2;
+    rect.y = this.y - this.h;
+    // baseline ground behavior
+    this.onGround = false;
+    for (let p of this.game.platforms){
+      // platform's top surface is at p.y
+      if (rect.x + rect.w > p.x && rect.x < p.x + p.w){
+        const feetY = this.y;
+        if (this.vy >= 0 && (feetY) >= p.y - 2 && (feetY) <= p.y + 40) {
+          // snap to top
+          this.y = p.y;
+          this.vy = 0;
+          this.onGround = true;
+        }
+      }
+    }
+  }
+
+  lightAttack(){
+    this.isAttacking = true;
+    this.animState = 'punch';
+    this.animTimer = 0.18;
+    // spawn a short hitbox in front
+    const dir = this.facing;
+    const hbW = 56, hbH = 26;
+    const hx = this.x + dir*(this.w/2 + hbW/2 + 6);
+    const hy = this.y - this.h/2;
+    const dmg = this.profile.power;
+    const hb = this.game.spawnHitbox(this, hx - hbW/2, hy - hbH/2, hbW, hbH, dmg, { lifespan: 0.12, knockback: dir*160 });
+    // small spark effect
+    this.game.spawnParticle(hx, hy, '#ffd8a8', 0.14);
+  }
+
+  heavyAttack(){
+    this.isAttacking = true;
+    this.animState = 'heavy';
+    this.animTimer = 0.34;
+    // bigger hitbox and damage
+    const dir = this.facing;
+    const hbW = 96, hbH = 32;
+    const hx = this.x + dir*(this.w/2 + hbW/2 + 6);
+    const hy = this.y - this.h/2;
+    const dmg = Math.round(this.profile.power * 1.8);
+    const hb = this.game.spawnHitbox(this, hx - hbW/2, hy - hbH/2, hbW, hbH, dmg, { lifespan: 0.18, knockback: dir*280, heavy:true });
+    this.game.spawnParticle(hx, hy, '#ffb0b0', 0.22);
+  }
+
+  useSpecial(){
+    // Deduct cost
+    this.special = clamp(this.special - PLAYER_DEFAULTS.specialCost, 0, this.specialMax);
+    // run effect based on profile id
+    const id = this.profile.id;
+    if (id === 'kaze'){
+      // Windstep: dash through enemies, spawns multi-hit small hitboxes during dash
+      const dir = this.facing;
+      const dashDist = 260;
+      const dashTime = 0.28;
+      const startX = this.x;
+      const targetX = clamp(this.x + dir * dashDist, 20, WORLD_W - 20);
+      const ticks = 5;
+      for (let i=0;i<ticks;i++){
+        const t = (i / ticks) * dashTime;
+        // schedule hitboxes along dash using setTimeout-like scheduling via game loop (we'll use tiny timers array)
+        schedule(() => {
+          const hx = this.x + dir*(this.w/2 + 60);
+          const hy = this.y - this.h/2;
+          this.game.spawnHitbox(this, hx - 34, hy - 18, 68, 36, this.profile.power + 6, { lifespan: 0.12, knockback: dir*220 });
+          this.game.spawnParticle(hx, hy, '#bfefff', 0.18);
+        }, t);
+      }
+      // visual dash: move position instantly a bit (tunnel effect)
+      schedule(()=> { this.x = targetX; }, dashTime*0.6);
+      this.game.logger.push(`${this.profile.name} used WINDSTEP!`);
+    } else if (id === 'rin'){
+      // Crimson Palm: radial shockwave damage around player
+      const radius = 160;
+      const life = 0.42;
+      // stun & damage enemies in radius over a quick expanding circle
+      const fxid = createExpandingEffect(this.game, this.x, this.y - 32, radius, life, '#ff7b7b', (r) => {
+        // check enemies within r each frame (we will sample once immediately)
+        for (let en of this.game.enemies){
+          const dx = en.x - this.x, dy = en.y - this.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (!en.invulnerable && dist < r + 8){
+            en.takeDamage(22, this);
+            en.vy = -120;
+            this.game.spawnParticle(en.x, en.y - 18, '#ffc8c8', 0.24);
+          }
+        }
+      });
+      this.game.logger.push(`${this.profile.name} used CRIMSON PALM!`);
+    } else if (id === 'tsu'){
+      // Titan Toss: grabs nearest enemy in front and throws through group
+      let target = null;
+      let bestD = 9999;
+      for (let en of this.game.enemies){
+        const dx = en.x - this.x;
+        if (Math.sign(dx) !== this.facing) continue;
+        const dy = Math.abs(en.y - this.y);
+        if (dy > 60) continue;
+        const dist = Math.abs(dx);
+        if (dist < bestD && dist < 220){
+          bestD = dist; target = en;
+        }
+      }
+      if (target){
+        // damage + toss: move enemy across a short arc
+        target.takeDamage(28, this);
+        // toss trajectory: set velocities and temporary invuln
+        target.vx = this.facing * 420;
+        target.vy = -260;
+        target.invulnerable = true;
+        schedule(()=>{ target.invulnerable = false; }, 0.6);
+        this.game.spawnParticle(target.x, target.y - 18, '#e1b8ff', 0.34);
+        // spawn smaller explosion where it lands
+        schedule(()=> { this.game.spawnParticle(target.x, GROUND_Y - 12, '#ffd8ff', 0.28); }, 0.6);
+        this.game.logger.push(`${this.profile.name} used TITAN TOSS!`);
+      } else {
+        this.game.logger.push('No toss target!');
+      }
+    } else {
+      this.game.logger.push('Special not implemented');
+    }
+  }
+
+  takeDamage(amount, source){
+    if (this.invulnerable) return;
+    if (now() - this.lastDamaged < this.damageCooldown) return;
+    this.lastDamaged = now();
+    // reduce by defense
+    const def = this.profile.defense || 0;
+    const actual = Math.max(1, Math.round(amount - def * 0.6));
+    this.hp -= actual;
+    this.game.spawnParticle(this.x + rnd(-8,8), this.y - rnd(8,28), '#ffaaaa', 0.28);
+    this.invulnerable = true;
+    schedule(()=> this.invulnerable = false, 0.75);
+    this.game.logger.push(`Ouch! -${actual} HP`);
+    if (this.hp <= 0) this.die();
+  }
+
+  die(){
+    this.alive = false;
+    this.game.logger.push('You died! Respawning...');
+    // drop some money and reset after delay
+    schedule(()=>{
+      this.alive = true;
+      this.hp = Math.floor(this.maxHP * 0.45);
+      this.x = WORLD_W / 2;
+      this.y = GROUND_Y;
+      this.vx = 0; this.vy = 0;
+    }, 1.0);
+  }
+
+  onHitEnemy(enemy, dmg, opts={}){
+    // special gain and combos
+    const gain = Math.round(6 + dmg / 3);
+    this.special = clamp(this.special + gain, 0, this.specialMax);
+    this.comboCounter += 1;
+    this.comboTimer = now();
+    // chance to drop money
+    if (Math.random() < 0.25) this.money += 1;
+  }
+
+  draw(ctx){
+    // draw shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y + 6, this.w*0.6, 8, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    // body rectangle with simple anime face
+    const left = this.x - this.w/2, top = this.y - this.h;
+    // body main
+    ctx.fillStyle = this.color;
+    ctx.fillRect(left, top, this.w, this.h);
+    // outline
+    ctx.strokeStyle = '#0b0b0b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(left, top, this.w, this.h);
+    // face marker (anime)
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(left + this.w*0.55, top + 10, 8, 8);
+    // eye
+    ctx.fillStyle = '#000';
+    ctx.fillRect(left + this.w*0.58, top + 12, 3, 3);
+    // simple attack flash
+    if (this.animState === 'punch' && this.animTimer > 0){
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(left - 6, top, this.w + 12, this.h);
+    }
+
+    // draw special aura effects
+    if (this.effects.length){
+      for (let ef of this.effects){
+        ctx.strokeStyle = ef.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y - 16, ef.radius, ef.radius*0.6, 0, 0, Math.PI*2);
+        ctx.stroke();
+      }
+    }
+  }
+}
+
+/* ======================
+   Enemy class
+   ====================== */
+class Enemy {
+  constructor(game){
+    this.game = game;
+    this.reset();
+  }
+  reset(){
+    this.x = -1000; this.y = -1000;
+    this.w = 48; this.h = 64;
+    this.vx = 0; this.vy = 0;
+    this.type = 'enemy';
+    this.alive = false;
+    this.hp = 10; this.maxHP = 10;
+    this.speed = 80;
+    this.invulnerable = false;
+    this._hitCooldown = 0;
+    this.idleTimer = 0;
+  }
+  spawn(x,y,type='thug'){
+    this.reset();
+    this.x = x; this.y = y;
+    this.alive = true;
+    this.kind = type;
+    if (type === 'thug'){
+      this.w = 48; this.h = 64; this.hp = this.maxHP = 22; this.speed = 86;
+    } else if (type === 'knife'){
+      this.w = 42; this.h = 56; this.hp = this.maxHP = 18; this.speed = 140;
+    } else if (type === 'heavy'){
+      this.w = 72; this.h = 84; this.hp = this.maxHP = 48; this.speed = 60;
+    } else {
+      this.w = 48; this.h = 64; this.hp = this.maxHP = 20; this.speed = 80;
+    }
+    this.vx = 0; this.vy = 0;
+    this.invulnerable = false;
+    this._hitCooldown = 0;
+  }
+  getRect(){ return {x: this.x - this.w/2, y: this.y - this.h, w: this.w, h: this.h}; }
+
+  update(dt){
+    if (!this.alive) return;
+    // simple AI: chase player horizontally if within chunk & on same vertical band
+    const pl = this.game.player;
+    const dx = pl.x - this.x;
+    const adx = Math.abs(dx);
+    if (adx < 700){
+      // move toward player if far enough
+      if (adx > 46){
+        this.vx = Math.sign(dx) * this.speed;
+      } else {
+        this.vx = 0;
+        // attack player if close and cooldown passed
+        if (Math.random() < 0.02){
+          // spawn enemy hitbox to damage player briefly
+          const dir = Math.sign(dx) || 1;
+          const hbW = 58, hbH = 28;
+          const hx = this.x + dir*(this.w/2 + hbW/2 + 6);
+          const hy = this.y - this.h/2;
+          this.game.spawnHitbox(this, hx - hbW/2, hy - hbH/2, hbW, hbH, Math.round(this.maxHP * 0.12), { lifespan: 0.12, knockback: dir * 160 });
+        }
+      }
+    } else {
+      // idle patrol slowly
+      this.vx *= 0.96;
+      this.idleTimer -= dt;
+      if (this.idleTimer <= 0){
+        this.vx = (Math.random()>0.5?1:-1) * this.speed * 0.2;
+        this.idleTimer = rnd(0.6, 1.6);
+      }
+    }
+
+    // gravity & integration
+    this.vy += GRAVITY * dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+
+    // platform collision
+    // simple snap to top if falling and intersects
+    for (let p of this.game.platforms){
+      if (this.x - this.w/2 + 2 < p.x + p.w && this.x + this.w/2 - 2 > p.x){
+        if (this.y >= p.y - 8 && this.y <= p.y + 40){
+          this.y = p.y;
+          this.vy = 0;
+        }
+      }
+    }
+
+    // reduce invulnerability & hit cooldowns
+    this._hitCooldown -= dt;
+    if (this._hitCooldown < 0) this._hitCooldown = 0;
+    if (this.invulnerable && this._hitCooldown <= 0) this.invulnerable = false;
+
+    // remove if dead
+    if (this.hp <= 0){
+      this.die();
+    }
+  }
+
+  takeDamage(amount, source){
+    if (this.invulnerable) return;
+    // take damage and small knockback
+    this.hp -= amount;
+    this.invulnerable = true;
+    this._hitCooldown = 0.12;
+    // knockback away from source
+    if (source && source.x){
+      const dir = this.x < source.x ? -1 : 1;
+      this.vx = dir * 180;
+      this.vy = -120;
+    }
+    this.game.spawnParticle(this.x, this.y - 18, '#ffb3b3', 0.28);
+    // small chance to drop items on death handled in die()
+  }
+
+  die(){
+    if (!this.alive) return;
+    this.alive = false;
+    // spawn coin or health
+    if (Math.random() < 0.6) this.game.spawnItem(this.x, this.y - 18, 'coin');
+    else if (Math.random() < 0.25) this.game.spawnItem(this.x, this.y - 18, 'health');
+    this.game.spawnParticle(this.x, this.y - 18, '#ffd8a8', 0.42);
+    // remove from active list by caller
+    // mark for removal (game will release it next update)
+    // find index and remove
+    this.game.removeEnemy(this);
+  }
+
+  draw(ctx){
+    if (!this.alive) return;
+    // shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.24)';
+    ctx.beginPath();
+    ctx.ellipse(this.x, this.y + 6, this.w*0.5, 7, 0, 0, Math.PI*2); ctx.fill();
+
+    // body color by kind
+    let color = '#808080';
+    if (this.kind === 'thug') color = '#aaaacc';
+    else if (this.kind === 'knife') color = '#ffd366';
+    else if (this.kind === 'heavy') color = '#c08070';
+    ctx.fillStyle = color;
+    const left = this.x - this.w/2, top = this.y - this.h;
+    ctx.fillRect(left, top, this.w, this.h);
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(left, top, this.w, this.h);
+
+    // health bar above enemy
+    const barW = this.w;
+    const barX = this.x - barW/2, barY = top - 8;
+    ctx.fillStyle = '#222';
+    ctx.fillRect(barX, barY, barW, 6);
+    ctx.fillStyle = '#ff6b6b';
+    const r = clamp(this.hp / this.maxHP, 0, 1);
+    ctx.fillRect(barX, barY, barW * r, 6);
+  }
+}
+
+/* ======================
+   Hitbox class
+   ====================== */
+class Hitbox {
+  constructor(game){
+    this.game = game;
+    this.reset();
+  }
+  reset(){
+    this.x = -9999; this.y = -9999; this.w = 0; this.h = 0;
+    this.owner = null; this.damage = 0; this.lifespan = 0; this.age = 0;
+    this.active = false;
+    this.knockback = 0;
+    this.heavy = false;
+  }
+
+  spawn(owner, x,y,w,h, damage, opts={}){
+    this.owner = owner;
+    this.x = x; this.y = y; this.w = w; this.h = h;
+    this.damage = damage;
+    this.lifespan = opts.lifespan || 0.12;
+    this.age = 0;
+    this.active = true;
+    this.knockback = opts.knockback || 0;
+    this.heavy = !!opts.heavy;
+    this._hitEntities = new Set();
+  }
+
+  getRect(){ return {x:this.x, y:this.y, w:this.w, h:this.h}; }
+
+  update(dt){
+    if (!this.active) return;
+    this.age += dt;
+    if (this.age >= this.lifespan) { this.active = false; return; }
+  }
+
+  onHit(target){
+    // avoid hitting same target twice per hitbox
+    if (this._hitEntities.has(target)) return;
+    this._hitEntities.add(target);
+
+    // apply damage and knockback
+    if (target.type === 'enemy'){
+      target.takeDamage(this.damage, this.owner);
+      // apply knockback velocity
+      if (target.alive) target.vx = this.knockback;
+      // owner gets combo credit
+      if (this.owner && this.owner.type === 'player') {
+        this.owner.onHitEnemy(target, this.damage, { heavy:this.heavy });
+      }
+    } else if (target.type === 'player'){
+      target.takeDamage(this.damage, this.owner);
+    }
+
+    // spawn hit effect
+    this.game.spawnParticle((this.x + this.x + this.w)/2, (this.y + this.y + this.h)/2, '#ffffc8', 0.12);
+  }
+
+  draw(ctx){
+    // debug draw
+    ctx.strokeStyle = 'rgba(255,0,0,0.18)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(this.x, this.y, this.w, this.h);
+  }
+}
+
+/* ======================
+   Item class
+   ====================== */
+class Item {
+  constructor(game){
+    this.game = game;
+    this.reset();
+  }
+  reset(){
+    this.x = -9999; this.y = -9999; this.kind = null; this.vy = 0;
+    this.alive = false; this.lifetime = 10; this.spawnTime = 0;
+  }
+  spawn(x,y,kind='coin'){
+    this.x = x; this.y = y; this.kind = kind; this.vy = -260;
+    this.alive = true; this.spawnTime = now();
+  }
+  update(dt){
+    if (!this.alive) return;
+    this.vy += GRAVITY * dt * 0.7;
+    this.y += this.vy * dt;
+    // ground collision
+    if (this.y > GROUND_Y - 6){
+      this.y = GROUND_Y - 6;
+      this.vy = 0;
+    }
+    // pickup if player overlaps
+    const pr = this.game.player.getRect();
+    const ir = {x:this.x-12, y:this.y-12, w:24, h:24};
+    if (rectOverlap(pr, ir)){
+      // grant based on kind
+      if (this.kind === 'coin') this.game.player.money += 1;
+      else if (this.kind === 'health') this.game.player.hp = Math.min(this.game.player.maxHP, this.game.player.hp + 26);
+      else if (this.kind === 'adrenaline') this.game.player.special = Math.min(this.game.player.specialMax, this.game.player.special + 30);
+      this.game.spawnParticle(this.x, this.y - 8, '#ffffd6', 0.36);
+      this.alive = false;
+      this.game.removeItem(this);
+      return;
+    }
+    // life expiry
+    if (now() - this.spawnTime > this.lifetime) { this.alive = false; this.game.removeItem(this); }
+  }
+  draw(ctx){
+    if (!this.alive) return;
+    ctx.fillStyle = (this.kind === 'coin' ? '#ffd36b' : (this.kind === 'health' ? '#ff6b6b' : '#6bffb2'));
+    ctx.beginPath(); ctx.arc(this.x, this.y, 10, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#00000033'; ctx.lineWidth = 1; ctx.stroke();
+  }
+}
+
+/* ======================
+   Particle (effects)
+   ====================== */
+class Particle {
+  constructor(game){ this.game = game; this.reset(); }
+  reset(){ this.x=0; this.y=0; this.vx=0; this.vy=0; this.color='#fff'; this.life=0; this.time=0; this.alive=false; }
+  spawn(x,y,color,life){
+    this.x=x; this.y=y; this.vx = rnd(-40,40); this.vy = rnd(-160,-40); this.color=color; this.life=life; this.time=life; this.alive=true;
+  }
+  update(dt){
+    if (!this.alive) return;
+    this.time -= dt;
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    this.vy += GRAVITY * dt * 0.2;
+    if (this.time <= 0) this.alive=false;
+  }
+  draw(ctx){
+    if (!this.alive) return;
+    ctx.globalAlpha = clamp(this.time / this.life, 0, 1);
+    ctx.fillStyle = this.color;
+    ctx.beginPath(); ctx.arc(this.x, this.y, 4, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ======================
+   Utilities for scheduling timed calls within game timeline
+   (simple implementation using array of scheduled tasks)
+   ====================== */
+const scheduledTasks = [];
+function schedule(fn, delay){
+  // delay in seconds relative to now, store absolute target time
+  scheduledTasks.push({ t: now() + delay, fn: fn });
+}
+// call scheduled tasks in a simple ticker that runs inside the RAF loop
+(function scheduledTicker(){
+  function tick(){
+    const t = now();
+    for (let i=scheduledTasks.length-1;i>=0;i--){
+      if (scheduledTasks[i].t <= t){
+        const f = scheduledTasks[i].fn;
+        try { f(); } catch(e){ console.error(e); }
+        scheduledTasks.splice(i,1);
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+
+/* helper to create an expanding effect and call callback while expanding */
+function createExpandingEffect(game, x,y, targetRadius, duration, color, onUpdatePerTick){
+  const ef = { x:x, y:y, r:0, color:color, time:duration, alive:true };
+  const start = now();
+  const handle = {
+    update: (dt) => {
+      const t = (now() - start) / duration;
+      ef.r = t * targetRadius;
+      if (onUpdatePerTick) onUpdatePerTick(ef.r);
+      if (t >= 1) ef.alive = false;
+    },
+    draw: (ctx) => {
+      if (!ef.alive) return;
+      ctx.strokeStyle = ef.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(ef.x, ef.y, ef.r, ef.r*0.55, 0, 0, Math.PI*2);
+      ctx.stroke();
+    },
+    alive: () => ef.alive
+  };
+  // put it into game's effects (as a custom object)
+  game.effects.push({
+    update: (dt) => handle.update(dt),
+    draw: (ctx) => handle.draw(ctx),
+    alive: true
+  });
+  // make sure it's removed automatically via its alive flag when done
+  return handle;
+}
+
+/* ======================
+   Boot & run
+   ====================== */
+const canvas = document.getElementById('gameCanvas');
+const game = new Game(canvas);
+
+// Hook player swap on TAB
+window.addEventListener('keydown', (e)=>{
+  if (e.key === 'Tab'){ e.preventDefault();
+    // cycle character
+    game.selected = (game.selected + 1) % game.characters.length;
+    game.player.profile = game.characters[game.selected];
+    // update derived stats quickly
+    game.player.profile = game.characters[game.selected];
+    game.player.speed = game.player.profile.speed;
+    game.logger.push(`Switched to ${game.player.profile.name}`);
+  }
+});
+
+// Small demo: spawn an initial cluster of enemies
+for (let i=0;i<5;i++){
+  game.spawnEnemyAt(WORLD_W/2 + rnd(-360,360), GROUND_Y - 24, pick(['thug','knife','heavy']));
+}
+
+// Debug: show instructions on click
+canvas.addEventListener('click', ()=>{
+  game.logger.push('Click: camera follows, TAB to swap char, Q/E/R = specials per char');
+});
+
+/* Expose game for console tinkering */
+window.__game = game;
+
+/* ======================
+   Final notes (in-page)
+   ====================== */
+// You can edit character stats above, add new enemies, or redesign visuals.
+// For GitHub Pages: push this file to the repo's gh-pages branch (or main for user pages) and enable Pages.
+// Everything procedural — no external assets needed.
+
+</script>
+</body>
+</html>
