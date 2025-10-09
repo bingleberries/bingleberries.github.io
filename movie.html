@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bing's Movies — Movie Station</title>
+  <style>
+    /* Space background */
+    html,body { height:100%; margin:0; font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#e6f0ff; }
+    body {
+      background: radial-gradient(ellipse at bottom, #020317 0%, #000010 40%, #000014 100%);
+      overflow:auto;
+    }
+    /* simple starfield */
+    .stars {
+      pointer-events:none;
+      position:fixed;
+      inset:0;
+      background-image:
+        radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.9) 50%, rgba(0,0,0,0) 51%),
+        radial-gradient(1px 1px at 60% 80%, rgba(255,255,255,0.7) 50%, rgba(0,0,0,0) 51%),
+        radial-gradient(1px 1px at 40% 60%, rgba(255,255,255,0.6) 50%, rgba(0,0,0,0) 51%);
+      background-size: 100px 100px, 160px 160px, 220px 220px;
+      opacity:0.9;
+      mix-blend-mode: screen;
+      z-index:0;
+    }
+
+    /* container */
+    .wrap {
+      max-width:1200px; margin:48px auto; position:relative; z-index:1; padding:20px;
+      backdrop-filter: blur(6px) saturate(1.2);
+    }
+
+    header {
+      display:flex; gap:16px; align-items:center; margin-bottom:18px;
+    }
+    h1 { margin:0; font-size:28px; letter-spacing:1px; }
+    .sub { color:#9fb2ff; font-size:14px; margin-top:4px; }
+
+    .controls { display:flex; gap:12px; margin-left:auto; align-items:center; }
+    .search {
+      background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); padding:8px 12px; border-radius:10px;
+      color: #eaf0ff; outline:none;
+    }
+
+    /* layout */
+    .main {
+      display:grid;
+      grid-template-columns: 1fr 420px;
+      gap:18px;
+      align-items:start;
+    }
+
+    /* left: categories + catalog */
+    .catalog {
+      background: linear-gradient(180deg, rgba(10,14,30,0.5), rgba(0,0,0,0.25));
+      border-radius:12px; padding:14px; box-shadow: 0 8px 30px rgba(2,6,20,0.6);
+    }
+
+    .category {
+      margin-bottom:14px;
+    }
+    .cat-header {
+      display:flex; justify-content:space-between; align-items:center;
+      cursor:pointer; user-select:none;
+    }
+    .cat-title { font-weight:700; font-size:16px; }
+    .cat-content { margin-top:10px; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:10px; }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:10px; padding:10px; cursor:pointer; border:1px solid rgba(255,255,255,0.03);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.6); }
+    .card .title { font-size:14px; margin-bottom:6px; color:#eaf0ff; }
+    .card .meta { font-size:12px; color:#9fb2ff; }
+
+    /* right: player */
+    .player {
+      background: linear-gradient(180deg, rgba(6,12,30,0.6), rgba(2,4,8,0.6));
+      border-radius:12px; padding:12px; min-height:360px; border:1px solid rgba(255,255,255,0.03);
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .player .viewer { background:#000; border-radius:8px; overflow:hidden; flex:1; min-height:240px; display:flex; align-items:center; justify-content:center; }
+    iframe { width:100%; height:100%; border:0; display:block; }
+    .player h2 { margin:0; font-size:16px; color:#fff; }
+
+    .help {
+      font-size:13px; color:#bcd1ff; opacity:0.9;
+    }
+
+    /* small */
+    @media (max-width:1000px) {
+      .main { grid-template-columns: 1fr; }
+      .player { order: -1; }
+    }
+
+    /* simple button */
+    .btn {
+      background: rgba(255,255,255,0.06); padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);
+      color:#dfeaff; cursor:pointer;
+    }
+    .btn.ghost { background:transparent; border:1px solid rgba(255,255,255,0.06); }
+    .small { font-size:13px; padding:6px 8px; }
+
+    /* subtle footer */
+    footer { text-align:center; color:#9fb2ff; margin-top:18px; font-size:13px; }
+
+  </style>
+</head>
+<body>
+  <div class="stars" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>🎬 Bing's Movies</h1>
+        <div class="sub">Click any entry to load it. Space vibes engaged 🌌</div>
+      </div>
+
+      <div class="controls">
+        <input id="search" class="search" placeholder="Search titles or categories..." />
+        <button id="collapseAll" class="btn small ghost">Collapse All</button>
+        <button id="expandAll" class="btn small">Expand All</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <section class="catalog" aria-label="Catalog">
+        <!-- CATEGORY: Starting Links -->
+        <div class="category" data-category="Starting Links">
+          <div class="cat-header" onclick="toggleCategory(this)">
+            <div class="cat-title">🚀 Starting Links</div>
+            <div class="cat-count" id="count-starting">(6)</div>
+          </div>
+          <div class="cat-content">
+            <!-- Cards: these use data-src; files are converted to /preview in JS when necessary -->
+            <div class="card" data-title="CupHead (folder) - 1j_K1Y..." data-src="https://drive.google.com/drive/folders/1j_K1YV4w_sHAzwEAaUMl-qSk4qjrYSJ_">
+              <div class="title">CupHead (folder)</div>
+              <div class="meta">drive: 1j_K1YV4w_... (folder)</div>
+            </div>
+
+            <div class="card" data-title="File: 1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY" data-src="https://drive.google.com/file/d/1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY/preview">
+              <div class="title">Drive File — 1OyO1Odh...</div>
+              <div class="meta">Direct file preview link</div>
+            </div>
+
+            <div class="card" data-title="Folder: 1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw" data-src="https://drive.google.com/drive/folders/1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw">
+              <div class="title">Folder — 1LawIFQ48U...</div>
+              <div class="meta">drive folder</div>
+            </div>
+
+            <div class="card" data-title="Folder: 1rkjwmHMR8j2nqD2DmM2qHt1vVRmNwrXd" data-src="https://drive.google.com/drive/folders/1rkjwmHMR8j2nqD2DmM2qHt1vVRmNwrXd?usp=drive_link">
+              <div class="title">Folder — 1rkjw... (x2)</div>
+              <div class="meta">drive folder (duplicate)</div>
+            </div>
+
+            <div class="card" data-title="Folder: 1I7-ZUInlg9jb4R6LGq0qX3n7bjGKPFFO" data-src="https://drive.google.com/drive/folders/1I7-ZUInlg9jb4R6LGq0qX3n7bjGKPFFO">
+              <div class="title">Folder — 1I7-ZUInl...</div>
+              <div class="meta">drive folder</div>
+            </div>
+
+            <div class="card" data-title="File: 1_5PiiaO_lwVMh3_4Px-TU0modiH11V8r" data-src="https://drive.google.com/file/d/1_5PiiaO_lwVMh3_4Px-TU0modiH11V8r/preview">
+              <div class="title">Drive File — 1_5PiiaO...</div>
+              <div class="meta">Direct file preview link</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- OPTIONAL: Example other category (hidden when searching) -->
+        <div class="category" data-category="Example Category">
+          <div class="cat-header" onclick="toggleCategory(this)">
+            <div class="cat-title">🎞️ Example Category</div>
+            <div class="cat-count">(0)</div>
+          </div>
+          <div class="cat-content" style="display:none"></div>
+        </div>
+      </section>
+
+      <aside class="player" aria-label="Player">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h2 id="player-title">Player — select a title to play</h2>
+          <div>
+            <button id="popout" class="btn small ghost" title="Open current src in new tab">Open in new tab</button>
+            <button id="clear" class="btn small ghost" title="Clear player">Clear</button>
+          </div>
+        </div>
+
+        <div class="viewer" id="viewer">
+          <!-- default viewport -->
+          <div style="text-align:center; color:#9fb2ff;">
+            <div style="font-size:42px; margin-bottom:6px;">🌌</div>
+            <div style="font-size:14px;">Space station ready — click any entry to load it into the player</div>
+          </div>
+        </div>
+
+        <div class="help">
+          Tip: Google Drive **files** will play if shared with "Anyone with the link" and you use the `/preview` path. Folders and some file links may show a Drive UI instead of a video if they are not direct video files. If something doesn't play, open in a new tab with the button. 🔎
+        </div>
+      </aside>
+    </div>
+
+    <footer>Made with ✨ for BING'S MOVIES — Space mode engaged.</footer>
+  </div>
+
+  <script>
+    // Basic interactions
+    const cards = Array.from(document.querySelectorAll('.card'));
+    const viewer = document.getElementById('viewer');
+    const playerTitle = document.getElementById('player-title');
+    const popoutBtn = document.getElementById('popout');
+    const clearBtn = document.getElementById('clear');
+    const search = document.getElementById('search');
+    let currentSrc = '';
+
+    function loadSrc(src, title) {
+      // If user gave a regular file/view URL, convert to preview when possible:
+      // - If URL contains "/file/d/{id}/view" -> use /file/d/{id}/preview
+      // - If URL already ends with /preview, keep it.
+      let mapped = src;
+
+      // strip trailing spaces
+      mapped = mapped.trim();
+
+      // attempt to fix common "view?usp=..." -> preview
+      const fileViewMatch = mapped.match(/drive.google.com\\/file\\/d\\/([a-zA-Z0-9_-]+)\\/?/);
+      if (fileViewMatch && !/\\/preview$/.test(mapped)) {
+        // replace with preview if not already
+        mapped = "https://drive.google.com/file/d/" + fileViewMatch[1] + "/preview";
+      }
+
+      // Make an iframe
+      viewer.innerHTML = '';
+      const ifr = document.createElement('iframe');
+      ifr.setAttribute('allowfullscreen','');
+      ifr.setAttribute('sandbox','allow-same-origin allow-scripts allow-forms allow-popups');
+      ifr.src = mapped;
+      viewer.appendChild(ifr);
+
+      currentSrc = mapped;
+      playerTitle.textContent = title || 'Playing';
+      popoutBtn.disabled = false;
+    }
+
+    // click each card to load
+    cards.forEach(c => {
+      c.addEventListener('click', () => {
+        const src = c.dataset.src;
+        const title = c.dataset.title || c.querySelector('.title')?.textContent || 'Untitled';
+        loadSrc(src, title);
+      });
+    });
+
+    popoutBtn.addEventListener('click', () => {
+      if (!currentSrc) return alert('No source loaded.');
+      window.open(currentSrc, '_blank');
+    });
+
+    clearBtn.addEventListener('click', () => {
+      viewer.innerHTML = '<div style="text-align:center; color:#9fb2ff;"><div style="font-size:42px; margin-bottom:6px;">🌌</div><div style="font-size:14px;">Space station ready — click any entry to load it into the player</div></div>';
+      playerTitle.textContent = 'Player — select a title to play';
+      currentSrc = '';
+      popoutBtn.disabled = true;
+    });
+
+    // category toggles
+    function toggleCategory(el) {
+      const cat = el.parentElement;
+      const content = cat.querySelector('.cat-content');
+      content.style.display = (content.style.display === 'none' || content.style.display === '') ? 'grid' : 'none';
+    }
+    window.toggleCategory = toggleCategory;
+
+    document.getElementById('collapseAll').addEventListener('click', () => {
+      document.querySelectorAll('.cat-content').forEach(c => c.style.display = 'none');
+    });
+    document.getElementById('expandAll').addEventListener('click', () => {
+      document.querySelectorAll('.cat-content').forEach(c => c.style.display = 'grid');
+    });
+
+    // search
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      cards.forEach(card => {
+        const t = (card.dataset.title || card.textContent || '').toLowerCase();
+        card.style.display = t.indexOf(q) === -1 ? 'none' : 'block';
+      });
+      // hide categories with no visible cards
+      document.querySelectorAll('.category').forEach(cat => {
+        const any = cat.querySelectorAll('.card:not([style*="display: none"])').length;
+        cat.style.display = any ? 'block' : 'none';
+      });
+    });
+
+    // init
+    popoutBtn.disabled = true;
+  </script>
+</body>
+</html>
