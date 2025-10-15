@@ -1,99 +1,161 @@
-<html>
-
-
-<!-- Ultimate Game Stash file--> 
-<!-- For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
-
-
-
+<!DOCTYPE html>
+<html lang="en">
 <head>
-	<script src="//www.google.com/jsapi"></script>
-	<script>
-		window.parent.maeExportApis_();
-	</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bingleton's Personal Site</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-	<style>
-		body {
-			overflow: hidden;
-			background: #000000;
-			margin-top: 0;
-			margin-left: 0;
-			color: #000000;
-		}
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: radial-gradient(circle at top, #111, #000);
+      color: white;
+      overflow-x: hidden;
+    }
 
-		#startButton {
-			display: block;
-			width: 160px;
-			height: 40px;
-			background-color: #4CAF50;
-			color: white;
-			text-align: center;
-			text-decoration: none;
-			font-size: 16px;
-			margin: 20px auto;
-			padding: 10px 20px;
-			border: none;
-			border-radius: 8px;
-			cursor: pointer;
-			font-family: 'Press Start 2P', cursive;
-			box-shadow: 0px 0px 10px 2px #000000;
-		}
-	</style>
-	<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;display=swap" rel="stylesheet">
-	<style type="text/css">
-		#button {
-			display: none;
-		}
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 60px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid #0ff;
+    }
 
-		.imgb_vis {
-			animation: imgb-animation 7s linear;
-		}
+    header h1 {
+      font-size: 24px;
+      color: #0ff;
+      letter-spacing: 2px;
+    }
 
-		@keyframes imgb-animation {
-			10% {
-				transform: translateX(0);
-			}
+    nav a {
+      color: white;
+      text-decoration: none;
+      margin: 0 15px;
+      font-weight: 500;
+      transition: 0.3s;
+    }
 
-			20% {
-				transform: translateX(100px);
-			}
+    nav a:hover {
+      color: #0ff;
+    }
 
-			90% {
-				transform: translateX(100px);
-			}
+    .hero {
+      text-align: center;
+      margin-top: 100px;
+    }
 
-			100% {
-				transform: translateX(0);
-			}
-		}
-	</style>
+    .hero h2 {
+      font-size: 48px;
+      color: #0ff;
+      text-shadow: 0 0 15px #0ff;
+    }
+
+    .hero p {
+      font-size: 18px;
+      margin-top: 10px;
+      color: #ccc;
+    }
+
+    .btn {
+      margin-top: 30px;
+      padding: 12px 30px;
+      background: #0ff;
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 16px;
+      transition: 0.3s;
+    }
+
+    .btn:hover {
+      background: #00bfbf;
+    }
+
+    .games-section {
+      margin: 80px auto;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+      padding: 0 20px;
+    }
+
+    .game-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid #0ff;
+      border-radius: 15px;
+      padding: 20px;
+      text-align: center;
+      transition: 0.3s;
+      cursor: pointer;
+    }
+
+    .game-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 0 20px #0ff5;
+    }
+
+    .game-card img {
+      width: 100%;
+      border-radius: 10px;
+      margin-bottom: 15px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 30px;
+      color: #777;
+      font-size: 14px;
+      border-top: 1px solid #0ff3;
+    }
+  </style>
 </head>
-
 <body>
-	<div style="width: 100vw; height: 100vh;max-width:100%">
-		<div id="game" style="display: none;"></div>
-		<button id="startButton">PLAY</button>
-	</div>
-	<script>
-		document.getElementById("game").style.display = "none";
-            function startGame() {
-                document.getElementById("game").style.display = "block";
-                document.getElementById("startButton").style.display = "none";
-                EJS_player = "#game";
-                EJS_core = "segaMD";
-                EJS_color = "#000000";
-                EJS_startOnLoaded = true;
-                EJS_pathtodata = "https://cdn.jsdelivr.net/gh/a456pur/seraph@81f551ca0aa8e3d6018d32d8ac5904ac9bc78f76/storage/emulatorjs/data";
-                EJS_gameUrl = "https://cdn.jsdelivr.net/gh/a456pur/seraph@ae2fcc6d6a9cd051654fcc0519080db1f79cf2a7/games/sonicspinball/Sonic%20The%20Hedgehog%20Spinball%20(USA).zip";
-                loadGame(); 
-            }
-            document.getElementById("startButton").addEventListener("click", startGame);
-            function loadGame() {
-                var script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/gh/a456pur/seraph@81f551ca0aa8e3d6018d32d8ac5904ac9bc78f76/storage/emulatorjs/data/loader.js";
-                document.body.appendChild(script);
-		var script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/gh/a456pur/seraph@ae2fcc6d6a9cd051654fcc0519080db1f79cf2a7/storage/js/cloak.js";
-                document.body.appendChild(script);
-            }
-	</script>
+  <header>
+    <h1>⚡ GameZone</h1>
+    <nav>
+      <a href="#">Home</a>
+      <a href="#">Games</a>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h2>hie</h2>
+    <p> :) </p>
+    <button class="btn" onclick="window.location.href='example.html'">Play Now</button>
+  </div>
+
+  <div class="games-section">
+    <div class="game-card" onclick="window.location.href='example.html'">
+      <img src="https://picsum.photos/400/200?1" alt="sonic spinball">
+      <h3>sonic spinball</h3>
+      <p>most underrated sonic game</p>
+    </div>
+    <div class="game-card" onclick="window.location.href='example.html'">
+      <img src="https://picsum.photos/400/200?2" alt="slow roads">
+      <h3>slow roads</h3>
+      <p>boring tbh</p>
+    </div>
+    <div class="game-card" onclick="window.location.href='example.html'">
+      <img src="https://picsum.photos/400/200?3" alt="fuck camden">
+      <h3>unnamed</h3>
+      <p>ME OWN GAEM :) feel free to try it</p> 
+    </div>
+  </div>
+
+  <footer>
+    © 2025 GameZone — Made by Marshall 💪
+  </footer>
+</body>
+</html>
