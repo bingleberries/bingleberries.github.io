@@ -1,581 +1,155 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
- <script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js');
-}
-</script> <script>
-    (function () {
-      const savedTitle = localStorage.getItem('customTitle') || getCookie('customTitle');
-      const savedFavicon = localStorage.getItem('customFavicon') || getCookie('customFavicon');
-      const defaultFavicon = 'images/icons/logo.png';
-
-      if (savedTitle) document.title = savedTitle;
-      const favicon = savedFavicon || defaultFavicon;
-      setFavicon(favicon);
-      if (!savedFavicon) {
-        localStorage.setItem('customFavicon', favicon);
-        document.cookie = `customFavicon=${encodeURIComponent(favicon)}; path=/`;
-      }
-
-      function setFavicon(url) {
-        let link = document.querySelector('link[rel="icon"]');
-        if (!link) {
-          link = document.createElement('link');
-          link.rel = 'icon';
-          document.head.appendChild(link);
-        }
-        link.href = url;
-      }
-
-      function getCookie(name) {
-        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-        return match ? decodeURIComponent(match[2]) : null;
-      }
-
-      window.setCustomCloak = function(title, faviconURL) {
-        if (title) {
-          document.title = title;
-          localStorage.setItem('customTitle', title);
-          document.cookie = `customTitle=${encodeURIComponent(title)}; path=/`;
-        }
-        if (faviconURL) {
-          setFavicon(faviconURL);
-          localStorage.setItem('customFavicon', faviconURL);
-          document.cookie = `customFavicon=${encodeURIComponent(faviconURL)}; path=/`;
-        }
-      };
-    })();
-  </script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bing's Hub - Free Online Games & Media</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/tsparticles@2/tsparticles.bundle.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bingleyon — Hub Space</title>
   <style>
-    :root {
-      --bg-gradient-start: #14141f;
-      --bg-gradient-end: #1f1f2f;
-      --accent-color: #4a90e2;
-      --accent-glow: rgba(74, 144, 226, 0.6);
-      --text-color: #e0e0e0;
-      --card-bg: rgba(255, 255, 255, 0.05);
-      --card-hover-bg: rgba(255, 255, 255, 0.1);
-      --glass-bg: rgba(20, 20, 30, 0.75);
-      --border-radius: 12px;
-      --transition-speed: 0.3s;
-      --sidebar-width: 220px;
-      --topbar-height: 64px;
-    }
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Inter', sans-serif;
-      color: var(--text-color);
-      background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
-      height: 100vh;
-      overflow: hidden;
-      position: relative;
-    }
-    #tsparticles {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 0;
-      pointer-events: none;
-    }
-    @keyframes shine {
-      0% { background-position: -200%; }
-      100% { background-position: 200%; }
-    }
-    .topbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: var(--topbar-height);
-      background: var(--glass-bg);
-      backdrop-filter: blur(8px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 24px;
-      z-index: 10;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    }
-    .topbar .logo-text {
-      position: absolute;
-      left: 24px;
-      font-weight: 700;
-      font-size: 1.35rem;
-      color: var(--accent-color);
-      letter-spacing: 0.6px;
-      text-shadow: 0 0 10px var(--accent-glow);
-      cursor: default;
-    }
-    .search-container {
-      flex: none;
-      margin: 0 auto;
-      width: 360px;
-      display: flex;
-      align-items: center;
-    }
-    .search-container input {
-      width: 100%;
-      padding: 8px 12px;
-      border: none;
-      border-radius: var(--border-radius) 0 0 var(--border-radius);
-      background: rgba(255, 255, 255, 0.1);
-      color: var(--text-color);
-      outline: none;
-      transition: transform var(--transition-speed), background var(--transition-speed), box-shadow var(--transition-speed);
-    }
-    .search-container input:focus {
-      background: rgba(255, 255, 255, 0.2);
-      transform: scale(1.03);
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-    .search-container button {
-      padding: 8px 12px;
-      border: none;
-      border-radius: 0 var(--border-radius) var(--border-radius) 0;
-      background: var(--accent-color);
-      color: #fff;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform var(--transition-speed), background var(--transition-speed), box-shadow var(--transition-speed);
-    }
-    .search-container button:hover {
-      background: #6cb3f0;
-      transform: translateY(-2px) scale(1.05);
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-    .topbar .settings-icon {
-      height: 38px;
-      width: 38px;
-      position: absolute;
-      right: 32px;
-      top: 13px;
-      cursor: pointer;
-      transition: transform var(--transition-speed);
-      z-index: 11;
-    }
-    .topbar .settings-icon:hover {
-      transform: scale(1.12) rotate(20deg);
-    }
-    .sidebar {
-      position: fixed;
-      top: var(--topbar-height);
-      left: 0;
-      width: var(--sidebar-width);
-      bottom: 0;
-      background: var(--glass-bg);
-      backdrop-filter: blur(8px);
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      overflow-y: auto;
-      z-index: 9;
-      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
-    }
-    .sidebar a {
-      position: relative;
-      padding: 12px 16px;
-      color: var(--text-color);
-      text-decoration: none;
-      font-size: 15px;
-      border-radius: var(--border-radius);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      transition: color var(--transition-speed), background var(--transition-speed), transform var(--transition-speed);
-    }
-    .sidebar a .icon {
-      min-width: 26px;
-      text-align: center;
-      opacity: 0.95;
-    }
-    .sidebar a:hover {
-      background: var(--accent-color);
-      color: #fff;
-      transform: translateX(6px);
-    }
-    .main {
-      position: absolute;
-      top: var(--topbar-height);
-      left: var(--sidebar-width);
-      right: 0;
-      bottom: 0;
-      padding: 24px;
-      overflow-y: auto;
-      z-index: 1;
-    }
-    #searchResultsMessage {
-      display: none;
-      margin-bottom: 18px;
-      font-size: 1.2em;
-      color: #fff;
-      text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-    }
-    .actions-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-    .actions-bar button,
-    .actions-bar .fav-icon {
-      background: var(--accent-color);
-      border: none;
-      color: #fff;
-      font-size: 14px;
-      font-weight: 600;
-      padding: 8px 12px;
-      border-radius: var(--border-radius);
-      cursor: pointer;
-      transition: background var(--transition-speed), transform var(--transition-speed), box-shadow var(--transition-speed);
-    }
-    .actions-bar button:hover,
-    .actions-bar .fav-icon:hover {
-      background: #6cb3f0;
-      transform: translateY(-2px) scale(1.05);
-      box-shadow: 0 0 8px var(--accent-glow);
-    }
-    .actions-bar .favorites-bar {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-    .actions-bar .favorites-bar span {
-      font-size: 14px;
-      margin-right: 6px;
-    }
-    .actions-bar .favorites-bar img {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--border-radius);
-      object-fit: cover;
-      cursor: pointer;
-      transition: transform var(--transition-speed);
-    }
-    .actions-bar .favorites-bar img:hover {
-      transform: scale(1.1);
-    }
-    .game-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 20px;
-    }
-    .game-item {
-      position: relative;
-      background: var(--card-bg);
-      border: 2px solid transparent;
-      border-radius: var(--border-radius);
-      overflow: hidden;
-      cursor: pointer;
-      transition: transform var(--transition-speed), box-shadow var(--transition-speed), border-color var(--transition-speed), background var(--transition-speed);
-    }
-    .game-item:hover {
-      transform: translateY(-8px) scale(1.05);
-      box-shadow:
-        0 8px 16px rgba(0,0,0,0.5),
-        0 0 12px var(--accent-glow),
-        0 0 24px var(--accent-glow);
-      border-color: var(--accent-color);
-      background: var(--card-hover-bg);
-    }
-    .game-item img {
-      width: 100%;
-      height: auto;
-      display: block;
-      filter: brightness(0.95);
-      transition: filter var(--transition-speed);
-    }
-    .game-item img:hover {
-      filter: brightness(1);
-    }
-    .game-item::after {
-      content: attr(data-title);
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      padding: 6px 8px;
-      background: rgba(0, 0, 0, 0.6);
-      color: #fff;
-      font-size: 14px;
-      text-align: center;
-      opacity: 0;
-      transform: translateY(100%);
-      transition: transform var(--transition-speed), opacity var(--transition-speed);
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      overflow: hidden;
-    }
-    .game-item:hover::after {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .game-item .heart {
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      font-size: 22px;
-      color: rgba(255, 0, 0, 0.8);
-      cursor: pointer;
-      opacity: 0.9;
-      user-select: none;
-      transition: transform var(--transition-speed), text-shadow var(--transition-speed);
-      z-index: 2;
-    }
-    .game-item .heart:hover {
-      transform: scale(1.2);
-      text-shadow: 0 0 6px rgba(255, 0, 0, 0.8);
-    }
-    .game-item.hidden {
-      display: none !important;
-    }
-    @media (max-width: 768px) {
-      .sidebar {
-        width: 60px;
-        padding: 8px;
-      }
-      .sidebar a {
-        font-size: 12px;
-        padding: 8px;
-      }
-      .topbar {
-        padding: 0 16px;
-      }
-      .search-container input {
-        width: 200px;
-      }
-      .actions-bar {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .actions-bar button,
-      .actions-bar .fav-icon {
-        width: 100%;
-      }
-      .topbar .settings-icon {
-        right: 8px;
-        top: 13px;
-      }
-    }
+    :root{--bg:#0b1220;--panel:#0f1722;--accent:#1070ff;--glass:rgba(255,255,255,0.04);--muted:rgba(255,255,255,0.55)}
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:radial-gradient(1200px 600px at 10% 10%, rgba(16,112,255,0.06), transparent), radial-gradient(900px 400px at 90% 80%, rgba(150,60,255,0.04), transparent), var(--bg);color:#e6eef8}
+    .app{display:grid;grid-template-columns:320px 1fr;gap:20px;height:100vh;padding:28px}
+    .sidebar{background:linear-gradient(180deg,var(--panel),rgba(255,255,255,0.02));border-radius:14px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.7);overflow:auto}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-weight:800}
+    h1{font-size:16px;margin:0}
+    .search{margin-top:14px;display:flex;gap:8px}
+    .search input{flex:1;padding:10px 12px;border-radius:10px;border:0;background:var(--glass);color:inherit;outline:none}
+    .search button{padding:10px 12px;border-radius:10px;border:0;background:var(--accent);color:white;cursor:pointer}
+    .genres{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px}
+    .chip{padding:8px 10px;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,0.06);cursor:pointer;font-size:13px}
+    .chip.active{background:linear-gradient(90deg,var(--accent),#6ee7b7);color:#041429;border:0}
+    .list{margin-top:18px}
+    .item{padding:8px 10px;border-radius:8px;margin-bottom:8px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);display:flex;align-items:center;gap:10px;cursor:pointer}
+    .item .title{font-weight:700}
+    .player{background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);border-radius:14px;padding:14px;box-shadow:0 10px 40px rgba(2,6,23,0.6);position:relative;overflow:hidden}
+    .player h2{margin:0 0 8px 0}
+    .iframe-wrap{width:100%;height:calc(100vh - 160px);background:#000;border-radius:10px;overflow:hidden}
+    iframe{width:100%;height:100%;border:0}
+    .empty{display:grid;place-items:center;height:100%;color:var(--muted)}
+    /* responsive */
+    @media(max-width:900px){.app{grid-template-columns:1fr;grid-auto-rows:auto;padding:12px}.sidebar{order:2}.player{order:1;height:60vh}.iframe-wrap{height:100%}}
   </style>
 </head>
 <body>
-  <div id="tsparticles"></div>
-  <div class="topbar">
-    <div class="logo-text">Bing's Hub 🚀</div>
-    <div class="search-container">
-      <input type="text" id="searchInput" onkeyup="searchGames()" placeholder="Search games, movies, music...">
-      <button onclick="searchGames()">Go</button>
-    </div>
-  <a href="settings.html">
-  <img src="images/icons/settings.png" alt="Settings" class="settings-icon">
-</a>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">B</div>
+        <div>
+          <h1>Bingleyon Hub</h1>
+          <div style="font-size:12px;color:var(--muted)">Space theme • search genres • iframe preview</div>
+        </div>
+      </div>
+
+      <div class="search">
+        <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()" />
+        <button id="clear" title="Clear" onclick="clearSearch()">✕</button>
+      </div>
+
+      <div class="genres" id="genres"></div>
+
+      <div class="list" id="list"></div>
+    </aside>
+
+    <main class="player">
+      <h2 id="playerTitle">Select something to preview</h2>
+      <div class="iframe-wrap" id="viewer">
+        <div class="empty">Click a title on the left — links open inside an iframe here (if the site allows embedding).</div>
+      </div>
+    </main>
   </div>
-  <div class="sidebar">
-    <a href="#" onclick="filterCategory('')" title="Homepage"><span class="icon">🏠</span> Homepage</a>
-    <a href="#" onclick="filterCategory('movies')" title="Movies"><span class="icon">🎬</span> Movies</a>
-    <a href="#" onclick="filterCategory('games')" title="Games"><span class="icon">🕹️</span> Games</a>
-    <a href="#" onclick="filterCategory('music')" title="Music"><span class="icon">🎵</span> Music</a>
-  </div>
-  <div class="main">
-    <div id="searchResultsMessage"></div>
-    <div class="actions-bar">
-      <button id="randomBtn">🎲 Random Game</button>
-      <div class="favorites-bar">
-        <span>❤ Favorites:</span>
-        <div id="favoriteIcons"></div>
-      </div>
-    </div>
-    <div class="game-grid" id="gameGrid">
-     <div class="game-item" data-title="1v1.lol" data-game="games/1v1.html" data-icon="images/icons/1v1.png" data-category="games">
-        <div class="heart">♡</div>
-        <img src="images/icons/1v1.png" alt="1v1.lol action shooter" onclick="openFullscreenGame('games/1v1.html')">
-      </div>
-      <div class="game-item" data-title="Rocket League" data-game="games/rl.html" data-icon="images/icons/rl.webp" data-category="games">
-        <div class="heart">♡</div>
-        <img src="images/icons/rl.webp" alt="Rocket League sports action" onclick="openFullscreenGame('games/rl.html')">
-      </div>
-      <div class="game-item" data-title="Escape Road 1" data-game="games/er1.html" data-icon="images/icons/er1.webp" data-category="games">
-        <div class="heart">♡</div>
-        <img src="images/icons/er1.webp" alt="Escape Road 1 action car endless" onclick="openFullscreenGame('games/er1.html')">
-      </div>
-      <div class="game-item" data-title="Flying Kong" data-game="games/kong.html" data-icon="images/icons/kong.png" data-category="games">
-        <div class="heart">♡</div>
-        <img src="images/icons/kong.png" alt="Flying Kong arcade" onclick="openFullscreenGame('games/kong.html')">
-      </div>
-      <div class="game-item" data-title="BitLife Simulator" data-game="games/bitlife.html" data-icon="images/icons/bitlife.png" data-category="games">
-        <div class="heart">♡</div>
-        <img src="images/icons/bitlife.png" alt="BitLife Simulator" onclick="openFullscreenGame('games/bitlife.html')">
-      </div>
-      <!-- example movie item -->
-      <div class="game-item" data-title="Inspace: Short Film" data-game="movies/inspace.html" data-icon="images/icons/movie1.jpg" data-category="movies">
-        <div class="heart">♡</div>
-        <img src="images/icons/movie1.jpg" alt="Inspace short film" onclick="openMedia('movies/inspace.html')">
-      </div>
-      <!-- example music item -->
-      <div class="game-item" data-title="Chillwave Mix" data-game="music/chillwave.html" data-icon="images/icons/music1.jpg" data-category="music">
-        <div class="heart">♡</div>
-        <img src="images/icons/music1.jpg" alt="Chillwave playlist" onclick="openMedia('music/chillwave.html')">
-      </div>
-      <!-- many existing game items preserved... (you would keep the rest as in your original file) -->
-    </div>
-  </div>
+
   <script>
-    tsParticles.load("tsparticles", {
-      fpsLimit: 60,
-      background: { color: "transparent" },
-      particles: {
-        number: { value: 80 },
-        color: { value: "#ffffff" },
-        shape: { type: "circle" },
-        opacity: { value: 0.5 },
-        size: { value: { min: 1, max: 3 } },
-        move: { enable: true, speed: 1, outModes: { default: "out" } }
-      },
-      interactivity: {
-        events: { onClick: { enable: true, mode: "push" } },
-        modes: { push: { quantity: 4 } }
-      },
-      detectRetina: true
+    // Items discovered in the uploaded file. I decoded a few Drive links from your HTML.
+    const items = [
+      {title: "The CupHead Show", url: "https://drive.google.com/drive/folders/1j_K1YV4w_sHAzwEAaUMl-qSk4qjrYSJ_", genre: "Cartoons"},
+      {title: "Five Nights at Freddy's (full movie)", url: "https://drive.google.com/file/d/1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY/view", genre: "Horror"},
+      {title: "Kirby: Right Back At Ya!", url: "https://drive.google.com/drive/u/0/folders/1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw", genre: "Anime"},
+      {title: "Avengers: Endgame (Avengers.Endgame.2019)", url: "https://drive.google.com/file/d/1UsxNtlBxGFp955GwEB-s8wYJCA6bXt7e/view", genre: "Marvel"},
+      {title: "Ant-Man And The Wasp", url: "https://drive.google.com/file/d/1AstKQ5KLX94k7RFIlsu2St9um8sS_w_M/view", genre: "Marvel"},
+      {title: "Black Panther", url: "https://drive.google.com/file/d/1GdMksUpH7ghCBF1j4sEmJU9hmZ3pPpkn/view", genre: "Marvel"},
+      {title: "Deadpool", url: "https://drive.google.com/file/d/1VH_yELQQxJxhuyxsU80q8eMsEeaxNomz/view", genre: "Action"},
+      {title: "Zootopia (2016)", url: "https://drive.google.com/file/d/1HYeIrbf8A-vfvJsvYP59AQzG9l8nt03h/view", genre: "Family"}
+    ];
+
+    // build genre list
+    const genres = Array.from(new Set(items.map(i=>i.genre))).sort();
+    const genresEl = document.getElementById('genres');
+    genresEl.innerHTML = '<button class="chip active" data-genre="ALL">All</button>' + genres.map(g=>`<button class="chip" data-genre="${g}">${g}</button>`).join('');
+
+    genresEl.addEventListener('click', e=>{
+      const btn = e.target.closest('.chip'); if(!btn) return;
+      document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+      btn.classList.add('active'); renderList();
     });
-    const FAVORITES_KEY = 'veloraFavorites'; 
-    function getFavorites() {
-      return JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+
+    function clearSearch(){document.getElementById('q').value='';renderList();}
+
+    function renderList(){
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const active = document.querySelector('.chip.active')?.dataset.genre || 'ALL';
+      const list = document.getElementById('list');
+      const filtered = items.filter(i=>{
+        if(active!=='ALL' && i.genre!==active) return false;
+        if(!q) return true;
+        return (i.title + ' ' + i.genre).toLowerCase().includes(q);
+      });
+      list.innerHTML = filtered.map((it,idx)=>`
+        <div class="item" data-idx="${idx}" onclick="openItem(${idx})">
+          <div style="width:44px;height:62px;border-radius:6px;background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent);display:flex;align-items:center;justify-content:center;font-weight:700">${it.title.split(' ').slice(0,2).map(s=>s[0]).join('')}</div>
+          <div style="flex:1">
+            <div class="title">${it.title}</div>
+            <div style="font-size:12px;color:var(--muted)">${it.genre}</div>
+          </div>
+          <div style="font-size:12px;color:var(--muted);padding-left:6px">▶</div>
+        </div>`).join('') || '<div style="color:var(--muted);padding:8px">Nothing found</div>';
     }
-    function saveFavorites(arr) {
-      localStorage.setItem(FAVORITES_KEY, JSON.stringify(arr));
-    }
-    function isFavorited(gamePath) {
-      return getFavorites().includes(gamePath);
-    }
-    function toggleFavorite(gamePath, iconSrc) {
-      let favs = getFavorites();
-      if (favs.includes(gamePath)) {
-        favs = favs.filter(g => g !== gamePath);
-      } else {
-        favs.push(gamePath);
-      }
-      saveFavorites(favs);
-      renderFavoritesBar();
-      updateAllHearts();
-    }
-    function renderFavoritesBar() {
-      const container = document.getElementById('favoriteIcons');
-      container.innerHTML = ''; 
-      const favs = getFavorites();
-      favs.forEach(gamePath => {
-        const tile = Array.from(document.querySelectorAll('.game-item'))
-                          .find(el => el.getAttribute('data-game') === gamePath);
-        if (tile) {
-          const iconURL = tile.getAttribute('data-icon');
-          const img = document.createElement('img');
-          img.src = iconURL;
-          img.title = tile.getAttribute('data-title');
-          img.onclick = () => openFullscreenGame(gamePath);
-          container.appendChild(img);
+
+    function openItem(listIdx){
+      const item = items[listIdx];
+      const viewer = document.getElementById('viewer');
+      const title = document.getElementById('playerTitle');
+      title.textContent = item.title;
+
+      // Try to iframe the URL. Note: many sites (Google Drive, YouTube, etc.) set headers preventing embedding.
+      // If embedding fails, user can click the "Open original" fallback button shown below.
+
+      // create iframe
+      const iframe = document.createElement('iframe');
+      iframe.src = item.url;
+      iframe.loading = 'lazy';
+      iframe.sandbox = ''; // intentionally permissive; removing sandbox helps but some hosts block iframe embedding
+
+      // fallback message and open button
+      viewer.innerHTML = '';
+      viewer.appendChild(iframe);
+
+      // after a few hundred ms, check if iframe loaded content (best-effort)
+      setTimeout(()=>{
+        try{
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          if(!doc || doc.location.href === 'about:blank'){
+            showFallback(item);
+          }
+        }catch(e){
+          // cross-origin or blocked — show fallback
+          showFallback(item);
         }
-      });
+      },700);
     }
-    function updateAllHearts() {
-      document.querySelectorAll('.game-item').forEach(item => {
-        const gamePath = item.getAttribute('data-game');
-        const heartEl = item.querySelector('.heart');
-        if (isFavorited(gamePath)) {
-          heartEl.textContent = '❤';
-        } else {
-          heartEl.textContent = '♡';
-        }
-      });
+
+    function showFallback(item){
+      const viewer = document.getElementById('viewer');
+      viewer.innerHTML = `<div style="padding:20px;display:flex;flex-direction:column;height:100%;box-sizing:border-box;gap:10px"><div style="flex:1;display:grid;place-items:center;color:var(--muted)">This link cannot be embedded due to the host's iframe restrictions.<br>Use the button below to open in a new tab.</div><div style="display:flex;gap:8px"><a target="_blank" rel="noopener noreferrer" href="${item.url}" style="flex:1;padding:10px;border-radius:10px;text-align:center;background:var(--accent);color:#00122a;text-decoration:none">Open original</a><button onclick="copyLink('${item.url}')" style="padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);border:0;color:var(--muted)">Copy link</button></div></div>`;
     }
-    document.addEventListener('DOMContentLoaded', () => {
-      document.querySelectorAll('.game-item .heart').forEach(heart => {
-        const parent = heart.closest('.game-item');
-        const gamePath = parent.getAttribute('data-game');
-        const iconURL = parent.getAttribute('data-icon');
-        heart.addEventListener('click', e => {
-          e.stopPropagation();
-          toggleFavorite(gamePath, iconURL);
-        });
-      });
-      updateAllHearts();
-      renderFavoritesBar();
-    });
-    document.addEventListener('DOMContentLoaded', () => {
-      document.getElementById('randomBtn').addEventListener('click', () => {
-        const allTiles = Array.from(document.querySelectorAll('.game-item'));
-        const visibleTiles = allTiles.filter(t => t.style.display !== 'none');
-        if (visibleTiles.length === 0) return;
-        const pick = visibleTiles[Math.floor(Math.random() * visibleTiles.length)];
-        const gamePath = pick.getAttribute('data-game');
-        openFullscreenGame(gamePath);
-      });
-    });
-    function searchGames() {
-      const input = document.getElementById("searchInput").value.trim().toLowerCase();
-      const messageDiv = document.getElementById("searchResultsMessage");
-      if (input) {
-        messageDiv.textContent = `🔎 Results for '${input}'`;
-        messageDiv.style.display = "block";
-      } else {
-        messageDiv.textContent = "";
-        messageDiv.style.display = "none";
-      }
-      document.querySelectorAll(".game-item").forEach(item => {
-        const alt = item.querySelector("img").alt.toLowerCase();
-        const title = (item.getAttribute('data-title') || '').toLowerCase();
-        item.style.display = (alt.includes(input) || title.includes(input)) ? "block" : "none";
-      });
-      renderFavoritesBar();
-    }
-    function filterCategory(term) {
-      document.getElementById("searchInput").value = term === '' ? '' : term;
-      // show/hide by data-category
-      document.querySelectorAll('.game-item').forEach(item => {
-        const cat = item.getAttribute('data-category') || 'games';
-        if (term === '' || term === 'all') {
-          item.style.display = 'block';
-        } else {
-          item.style.display = (cat === term) ? 'block' : 'none';
-        }
-      });
-      // update message
-      const messageDiv = document.getElementById("searchResultsMessage");
-      if (term && term !== '') {
-        messageDiv.textContent = `Showing: ${term.charAt(0).toUpperCase() + term.slice(1)}`;
-        messageDiv.style.display = 'block';
-      } else {
-        messageDiv.style.display = 'none';
-      }
-      renderFavoritesBar();
-    }
-    function openFullscreenGame(path) {
-      // preserve original behavior for games
-      if (path && path.startsWith('games/')) {
-        window.location.href = `iframe.html?game=${encodeURIComponent(path)}`;
-      } else {
-        // for media items
-        openMedia(path);
-      }
-    }
-    function openMedia(path) {
-      // simple behavior: open in new tab for movies/music entries
-      window.open(path, '_blank');
-    }
+
+    function copyLink(url){navigator.clipboard?.writeText(url).then(()=>alert('Link copied to clipboard'))}
+
+    // initial render
+    renderList();
+
+    // expose openItem for inline onclick
+    window.openItem = openItem;
   </script>
 </body>
 </html>
