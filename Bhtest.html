@@ -7,7 +7,16 @@
   <style>
     :root{--bg:#0b1220;--panel:#0f1722;--accent:#1070ff;--glass:rgba(255,255,255,0.04);--muted:rgba(255,255,255,0.55)}
     html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:radial-gradient(1200px 600px at 10% 10%, rgba(16,112,255,0.06), transparent), radial-gradient(900px 400px at 90% 80%, rgba(150,60,255,0.04), transparent), var(--bg);color:#e6eef8}
-    .app{display:grid;grid-template-columns:320px 1fr;gap:20px;height:100vh;padding:20px}
+ .app {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  height: 100vh;
+  width: 100vw; /* make it stretch full width bc i got rid of the iframe idea (fuck google drive) */
+  padding: 0; /* remove the box padding */
+  margin: 0;
+}
+
     .sidebar{background:linear-gradient(180deg,var(--panel),rgba(255,255,255,0.02));border-radius:14px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.7);overflow:auto}
     .brand{display:flex;gap:12px;align-items:center}
     .logo{width:48px;height:48px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#8b5cf6);display:grid;place-items:center;font-weight:800}
