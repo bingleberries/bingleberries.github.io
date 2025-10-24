@@ -116,28 +116,30 @@
   }
   .results .item { display:flex; gap:10px; align-items:center; padding:8px; border-radius:8px; cursor:pointer; transition:transform .12s; }
   .results .item:hover { transform: translateY(-4px); }
-  .thumb { width:56px; height:64px; border-radius:8px; display:grid; place-items:center; font-weight:800; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); color:var(--muted); }
+  .thumb { width:56px; height:64px; border-radius:8px; display:grid; place-items:center; font-weight:800; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); color:var(--muted); [...]
   .meta { font-size:12px; color:var(--muted); }
 
   /* center contact area (replaces floating logos) */
+  /* moved to top-right so it doesn't cover center content */
   .logo-field {
     position:fixed;
-    inset:0;
-    z-index:3;
-    display:grid;
-    place-items:center;
-    pointer-events:none;
+    top:20px;
+    right:20px;
+    z-index:5;
+    display:block;
+    pointer-events:none; /* container shouldn't capture pointer, the contact box will */
   }
   .contact {
     pointer-events:auto;
     text-align:center;
     color:var(--muted);
     font-size:18px;
-    padding:14px 18px;
+    padding:10px 14px;
     border-radius:10px;
     background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
     border:1px solid rgba(255,255,255,0.02);
     backdrop-filter: blur(6px);
+    max-width:320px;
   }
 
   /* small glowing outline for former logos (removed) */
@@ -153,7 +155,10 @@
   @media (max-width:900px){
     .controls { left:12px; right:12px; top:12px; width:auto; }
     .results { left:12px; right:12px; width:auto; bottom:12px; max-height:45vh; }
-    .contact { font-size:16px; padding:12px 14px; }
+    .contact { font-size:16px; padding:12px 14px; max-width:220px; }
+
+    /* keep contact visible on small screens, tuck it in near the controls */
+    .logo-field { top:12px; right:12px; }
   }
 </style>
 </head>
@@ -183,7 +188,7 @@
     <div class="genres" id="genres"></div>
   </div>
 
-  <!-- center contact text (replaces floating app/logo field) -->
+  <!-- moved contact text to top-right -->
   <div class="logo-field" aria-hidden="false">
     <div class="contact" role="contentinfo">contact <a href="mailto:30barmarsh@gmail.com" style="color:inherit;text-decoration:underline;">30barmarsh@gmail.com</a> for questions/comments</div>
   </div>
