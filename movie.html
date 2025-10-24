@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Bing's Hub</title>
+<title>Bing's Hub — Space UI</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
   :root{
@@ -285,6 +285,62 @@ window.openItem = function(i){
   // open direct
   window.open(url,'_blank');
 };
+renderList();
+
+/* ============================
+   Floating app logos (center)
+   ============================ */
+const logos = [
+  {id:'g', label:'Games', url: items[0].url},
+  {id:'m', label:'Movies', url: items[3].url},
+  {id:'c', label:'Comics', url: items[11].url},
+  {id:'s', label:'Shows', url: items[7].url},
+  {id:'a', label:'Anime', url: items[13].url},
+  {id:'x', label:'Random', url: items[1].url}
+];
+
+const orbit = document.getElementById('orbit');
+(function createLogos(){
+  const angleStep = 360 / logos.length;
+  logos.forEach((L,i)=>{
+    const el = document.createElement('button');
+    el.className = 'app-logo';
+    el.innerHTML = `<div style="text-align:center">${L.label.split(' ').slice(0,2).join('<br>')}</div>`;
+    el.setAttribute('data-angle', i * angleStep);
+    el.style.setProperty('--ang', `${i*angleStep}deg`);
+    // initial placement using trigonometry
+    orbit.appendChild(el);
+    el.addEventListener('click', ()=>{ window.open(L.url,'_blank'); });
+  });
+  // position once
+  positionLogos();
+  // gently rotate the whole orbit for subtle motion
+  let t=0;
+  setInterval(()=>{ t+=0.002; orbit.style.transform = `rotate(${t}turn)`; }, 30);
+})();
+
+function positionLogos(){
+  const box = orbit.getBoundingClientRect();
+  const cx = box.width/2, cy = box.height/2;
+  const rx = Math.min(box.width, box.height) * 0.38;
+  const ry = rx * 0.72;
+  const nodes = orbit.querySelectorAll('.app-logo');
+  nodes.forEach((n,idx)=>{
+    const angle = (parseFloat(n.dataset.angle) || 0) * (Math.PI/180);
+    // small dynamic offset so they float
+    const ox = Math.cos(angle) * rx;
+    const oy = Math.sin(angle) * ry;
+    // random jitter
+    const jitterX = Math.sin(Date.now()/1200 + idx) * 6;
+    const jitterY = Math.cos(Date.now()/1000 + idx) * 6;
+    n.style.left = `${cx + ox - n.offsetWidth/2 + jitterX}px`;
+    n.style.top  = `${cy + oy - n.offsetHeight/2 + jitterY}px`;
+    // slow individual float animation via CSS transform
+    const scale = 1 + Math.sin((Date.now()/800 + idx)/6) * 0.03;
+    n.style.transform = `translateZ(0) scale(${scale})`;
+  });
+  requestAnimationFrame(positionLogos);
+}
 
 /* ============================
    Canvas stars + shooting stars
@@ -424,4 +480,3 @@ window.addEventListener('keydown', (e)=>{
 </script>
 </body>
 </html>
-
