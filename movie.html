@@ -1,222 +1,483 @@
 <!doctype html>
-<!-- Full-screen animated "Bing's Hub" UI
-     Features:
-     - Fixed nebula + canvas starfield (twinkle + shooting stars)
-     - Floating animated app logos
-     - Full-page scroll (scrollbar controls the whole page)
-     - Search + genre chips + clickable items (open in new tab)
--->
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Bing's Hub — Space UI</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
   :root{
-    --bg:#060814;
-    --panel:#0f1722;
-    --accent:#1070ff;
+    --bg:#04050a;
+    --panel:rgba(8,14,28,0.6);
+    --accent:#1ea7ff;
     --glass:rgba(255,255,255,0.04);
-    --muted:rgba(255,255,255,0.6);
-    --card-gradient: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    --muted:rgba(230,238,248,0.65);
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:Inter, system-ui, Arial, sans-serif;
+    color:#e6eef8;
+    overflow-x:hidden;
+    background:var(--bg);
   }
 
-  /* Reset & page sizing */
-  html,body{height:auto;min-height:100vh;margin:0;font-family:Inter,system-ui,Arial,sans-serif;color:#e6eef8;background:var(--bg);overflow-x:hidden}
-  *{box-sizing:border-box}
+  /* full-screen canvas */
+  #space {
+    position:fixed;
+    inset:0;
+    z-index:0;
+    display:block;
+    background:var(--bg);
+  }
 
-  /* Fixed layered background: nebula (css), then star canvas */
-  .bg-nebula{
-    position:fixed;inset:0;z-index:0;pointer-events:none;
+  /* Animated nebula layer */
+  .nebula {
+    position:fixed;
+    inset: -10%;
+    z-index:1;
+    pointer-events:none;
     background:
-      radial-gradient(900px 500px at 10% 20%, rgba(16,112,255,0.12), transparent 25%),
-      radial-gradient(700px 400px at 85% 80%, rgba(130,60,255,0.08), transparent 20%),
-      linear-gradient(180deg, rgba(5,9,18,0.85), rgba(0,0,10,0.75));
-    filter:blur(12px) saturate(110%);
-    mix-blend-mode:screen;
+      radial-gradient(60% 40% at 15% 20%, rgba(16,112,255,0.14), transparent 18%),
+      radial-gradient(50% 30% at 85% 70%, rgba(155,50,255,0.10), transparent 18%),
+      radial-gradient(40% 40% at 50% 50%, rgba(255,140,100,0.06), transparent 15%),
+      transparent;
+    mix-blend-mode: screen;
+    filter: blur(28px) contrast(1.1) saturate(1.2);
+    animation: nebulaDrift 28s linear infinite;
+  }
+  @keyframes nebulaDrift{
+    0%{ transform: translate3d(0,0,0) scale(1) rotate(0deg); }
+    50%{ transform: translate3d(-4%,2%,0) scale(1.05) rotate(1deg); }
+    100%{ transform: translate3d(0,0,0) scale(1) rotate(0deg); }
   }
 
-  canvas#stars {
-    position:fixed;inset:0;z-index:1;pointer-events:none;display:block;
+  /* subtle starfield texture overlay */
+  .grain {
+    position:fixed; inset:0; z-index:2; pointer-events:none;
+    background-image: radial-gradient(white 0.6px, transparent 0.6px);
+    opacity:0.02; transform: scale(1.2);
   }
 
-  /* App layout (content scrolls) */
-  .app {
-    position:relative;
-    z-index:2;
-    display:grid;
-    grid-template-columns: 320px 1fr;
-    gap:20px;
-    width:100%;
-    min-height:100vh;
-    padding:28px;
-    align-items:start;
-  }
-
-  /* Top bar for small screens (mobile) */
-  header.topbar {
-    grid-column:1/-1;
-    display:flex;gap:12px;align-items:center;justify-content:space-between;
-    margin-bottom:6px;
-  }
-
-  .brand { display:flex;gap:12px;align-items:center }
-  .logo {
-    width:56px;height:56px;border-radius:12px;
-    background:linear-gradient(135deg,var(--accent),#8b5cf6);
-    display:grid;place-items:center;font-weight:900;font-size:20px;color:#021425;
-    box-shadow:0 8px 30px rgba(16,112,255,0.06), inset 0 -6px 18px rgba(255,255,255,0.03);
-  }
-  h1{font-size:18px;margin:0}
-  .sub { font-size:12px;color:var(--muted) }
-
-  /* Sidebar */
-  aside.sidebar{
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
-    border-radius:14px;padding:18px;box-shadow:0 6px 30px rgba(2,6,23,0.6);
-    min-height:220px;
-    position:sticky; top:28px; align-self:start;
-  }
-
-  .search { margin-top:12px; display:flex; gap:8px }
-  .search input{
-    flex:1;padding:10px 12px;border-radius:10px;border:0;background:var(--glass);color:inherit;outline:none;
-    caret-color:var(--accent);
-  }
-  .search button{padding:10px 12px;border-radius:10px;border:0;background:var(--accent);color:#00122a;cursor:pointer}
-
-  .genres{margin-top:14px;display:flex;flex-wrap:wrap;gap:8px}
-  .chip{padding:8px 10px;border-radius:999px;background:transparent;border:1px solid rgba(255,255,255,0.06);cursor:pointer;font-size:13px;color:var(--muted)}
-  .chip.active{background:linear-gradient(90deg,var(--accent),#6ee7b7);color:#041429;border:0}
-
-  .list{margin-top:14px;max-height:60vh;overflow:auto;padding-right:6px}
-  .item{padding:8px 10px;border-radius:10px;margin-bottom:8px;background:var(--card-gradient);display:flex;align-items:center;gap:10px;cursor:pointer;transition:transform .14s ease, box-shadow .14s}
-  .item:hover{transform:translateX(6px);box-shadow:0 8px 30px rgba(2,6,23,0.6)}
-  .item .thumb{width:52px;height:60px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.03),transparent);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--muted)}
-  .title{font-weight:700}
-  .meta{font-size:12px;color:var(--muted)}
-
-  /* Main content area */
-  main.viewer {
-    min-height: 60vh;
-    border-radius:14px;padding:18px;
+  /* top-left controls panel */
+  .controls {
+    position:fixed;
+    left:20px;
+    top:20px;
+    z-index:4;
+    width:min(420px, calc(100% - 40px));
+    padding:14px;
     background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    box-shadow:0 10px 40px rgba(2,6,23,0.6);
-    display:flex;flex-direction:column;
-    gap:14px;
+    border-radius:12px;
+    box-shadow: 0 10px 40px rgba(1,6,18,0.6);
+    backdrop-filter: blur(6px) saturate(1.1);
+    border: 1px solid rgba(255,255,255,0.03);
+  }
+  .brand { display:flex; gap:12px; align-items:center; }
+  .logo {
+    width:48px; height:48px; border-radius:10px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display:grid; place-items:center; font-weight:800; font-size:18px; color:#00122a;
+  }
+  .title { font-size:16px; margin:0; font-weight:700; }
+  .subtitle { font-size:12px; color:var(--muted); margin-top:4px; }
+
+  .search {
+    margin-top:12px; display:flex; gap:8px;
+  }
+  .search input{
+    flex:1; padding:10px 12px; border-radius:10px; border:0;
+    background: rgba(255,255,255,0.02); color:inherit; outline:none;
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.02);
+  }
+  .search button {
+    padding:10px 12px; border-radius:10px; border:0; background:var(--accent); color:#00122a; cursor:pointer;
   }
 
-  /* Floating logos area (top of main) */
-  .floating-logos{
-    position:relative;height:120px;overflow:visible;
-  }
-  .floating-logos .app-logo{
-    position:absolute; width:72px;height:72px;border-radius:16px;
-    display:grid;place-items:center;font-weight:800;color:#00122a;
-    background:linear-gradient(135deg,var(--accent),#8b5cf6);
-    box-shadow:0 10px 30px rgba(2,6,23,0.5);
-    transform-origin:center;
-    cursor:pointer; user-select:none;
-  }
-  /* float animation */
-  @keyframes floaty {
-    0%{ transform: translateY(0px) rotate(-2deg) }
-    50%{ transform: translateY(-12px) rotate(2deg) }
-    100%{ transform: translateY(0px) rotate(-2deg) }
-  }
-  .app-logo{ animation: floaty 6s ease-in-out infinite; }
+  .genres { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  .chip { padding:7px 10px; border-radius:999px; background:transparent; border:1px solid rgba(255,255,255,0.04); cursor:pointer; font-size:13px; color:var(--muted); }
+  .chip.active { background: linear-gradient(90deg,var(--accent), #6ee7b7); color:#041429; border:0; }
 
-  /* Grid of cards */
-  .grid {
+  /* results grid (in a floating container at bottom-left) */
+  .results {
+    position:fixed;
+    left:20px;
+    bottom:20px;
+    z-index:4;
+    width:min(600px, calc(100% - 40px));
+    max-height:55vh;
+    overflow:auto;
+    padding:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px;
+    box-shadow:0 20px 60px rgba(1,6,18,0.6);
+    border:1px solid rgba(255,255,255,0.03);
+    backdrop-filter: blur(6px);
+  }
+  .results .item { display:flex; gap:10px; align-items:center; padding:8px; border-radius:8px; cursor:pointer; transition:transform .12s; }
+  .results .item:hover { transform: translateY(-4px); }
+  .thumb { width:56px; height:64px; border-radius:8px; display:grid; place-items:center; font-weight:800; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); color:var(--muted); }
+  .meta { font-size:12px; color:var(--muted); }
+
+  /* floating logos in the center */
+  .logo-field {
+    position:fixed;
+    inset:0;
+    z-index:3;
     display:grid;
-    grid-template-columns: repeat(auto-fill,minmax(220px,1fr));
-    gap:14px;
+    place-items:center;
+    pointer-events:none;
   }
-  .card{
-    padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
-    min-height:110px;display:flex;flex-direction:column;gap:8px;justify-content:space-between;cursor:pointer;
-    transition:transform .12s ease, box-shadow .12s;
+  .orbit {
+    width:min(78vw, 720px);
+    height:min(60vh, 520px);
+    position:relative;
+    pointer-events:auto;
   }
-  .card:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(2,6,23,0.6)}
-  .card .c-title{font-weight:800}
-  .card .c-meta{font-size:12px;color:var(--muted)}
+  .app-logo {
+    position:absolute;
+    width:80px;
+    height:80px;
+    border-radius:18px;
+    display:grid; place-items:center;
+    font-weight:800; cursor:pointer;
+    box-shadow: 0 10px 30px rgba(2,6,23,0.6);
+    background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.04);
+    color:#fff;
+    backdrop-filter: blur(4px);
+    transition: transform .18s, box-shadow .18s;
+    pointer-events: auto;
+  }
+  .app-logo:hover { transform: translateY(-8px) scale(1.04); box-shadow: 0 18px 40px rgba(2,6,23,0.7); }
 
-  /* full-page scrollbar styling */
-  html {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(168,190,255,0.4) rgba(255,255,255,0.03);
-  }
-  ::-webkit-scrollbar{ width:14px }
-  ::-webkit-scrollbar-track{ background: rgba(255,255,255,0.02); border-left:1px solid rgba(255,255,255,0.02) }
-  ::-webkit-scrollbar-thumb{ background:linear-gradient(var(--accent), #6ee7b7); border-radius:12px; border:3px solid rgba(0,0,0,0.12) }
+  /* position helpers for logos - we will place them via CSS variables */
+  .app-logo { transform-origin:center; }
+  .app-logo[data-angle] { /* dummy - JS will set left/top via transform */ }
 
-  /* Responsive */
-  @media(max-width:960px){
-    .app{grid-template-columns:1fr; padding:16px}
-    aside.sidebar{position:relative; top:0; order:2}
-    main.viewer{order:1}
-    .floating-logos{height:90px}
+  /* small glowing outline for logos */
+  .app-logo::after {
+    content:"";
+    position:absolute; inset:-6px; border-radius:22px;
+    background:radial-gradient(circle at 20% 20%, rgba(30,167,255,0.08), transparent 10%);
+    z-index:-1; filter: blur(10px); opacity:0.9;
+  }
+
+  /* shooting star canvas will paint over the star canvas (same canvas used) */
+
+  /* full page scrollbar style */
+  ::-webkit-scrollbar { width:12px; height:12px; }
+  ::-webkit-scrollbar-thumb { background: linear-gradient(var(--accent), #6ee7b7); border-radius:8px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+
+  /* responsive */
+  @media (max-width:900px){
+    .controls { left:12px; right:12px; top:12px; width:auto; }
+    .results { left:12px; right:12px; width:auto; bottom:12px; max-height:45vh; }
+    .app-logo { width:64px; height:64px; border-radius:14px; }
+    .orbit { width:92vw; height:48vh; }
   }
 </style>
 </head>
 <body>
-  <!-- Nebula + Star canvas layers -->
-  <div class="bg-nebula" aria-hidden="true"></div>
-  <canvas id="stars" width="1600" height="900" aria-hidden="true"></canvas>
+  <!-- canvas for stars + shooting stars -->
+  <canvas id="space" aria-hidden="true"></canvas>
 
-  <!-- App content -->
-  <div class="app" id="app">
-    <header class="topbar" style="display:none;">
-      <div class="brand">
-        <div class="logo">B</div>
-        <div>
-          <h1>Bing's Hub</h1>
-          <div class="sub">Space theme • animated • direct-open</div>
-        </div>
+  <!-- nebula overlay -->
+  <div class="nebula" aria-hidden="true"></div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <!-- top-left control panel -->
+  <div class="controls" role="region" aria-label="Controls">
+    <div class="brand">
+      <div class="logo">B</div>
+      <div>
+        <p class="title">Bing's Hub</p>
+        <div class="subtitle">Space theme • click a logo or search below</div>
       </div>
-    </header>
+    </div>
 
-    <aside class="sidebar" aria-label="Sidebar">
-      <div class="brand">
-        <div class="logo">B</div>
-        <div>
-          <h1>Bing's Hub</h1>
-          <div class="sub">Animated • Nebula • Shooting stars</div>
-        </div>
-      </div>
+    <div class="search">
+      <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()" />
+      <button id="clear" title="Clear" onclick="clearSearch()">✕</button>
+    </div>
 
-      <div class="search" style="margin-top:12px">
-        <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()" />
-        <button id="clear" title="Clear" onclick="clearSearch()">✕</button>
-      </div>
+    <div class="genres" id="genres"></div>
+  </div>
 
-      <div class="genres" id="genres"></div>
+  <!-- floating app/logo field -->
+  <div class="logo-field" aria-hidden="false">
+    <div class="orbit" id="orbit">
+      <!-- logos will be injected by JS -->
+    </div>
+  </div>
 
-      <div class="list" id="list" aria-live="polite"></div>
-    </aside>
-
-    <main class="viewer" id="viewer">
-      <div class="floating-logos" id="floatingLogos" aria-hidden="true"></div>
-
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div style="font-weight:900;font-size:18px">Explore</div>
-        <div style="font-size:13px;color:var(--muted)">Click a card to open link ↗</div>
-      </div>
-
-      <div class="grid" id="grid"></div>
-    </main>
+  <!-- bottom-left results -->
+  <div class="results" id="results" role="region" aria-label="Search results">
+    <!-- items injected by JS -->
   </div>
 
 <script>
-/* ------------------------
-   Items (from your provided list)
-   ------------------------ */
+/* ============================
+   Data (your items)
+   ============================ */
 const items = [
-  {title: "The CupHead Show", url: "https://www.google.com/url?q=https://drive.google.com/drive/folders/1j_K1YV4w_sHAzwEAaUMl-qSk4qjrYSJ_&sa=D", genre: "Cartoons"},
-  {title: "Five Nights at Freddy's full movie.mp4", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY/view?usp%3Ddrive_link&sa=D", genre: "Horror"},
-  {title: "Kirby: Right Back At Ya!", url: "https://www.google.com/url?q=https://drive.google.com/drive/u/0/folders/1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw&sa=D", genre: "Cartoons"},
-  {title: "Avengers.Endgame.2019.1080p.BluRay.x264-[YTS.LT].mp4", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1UsxNtlBxGFp955GwEB-s8wYJCA6bXt7e/view&sa=D", genre: "Movies"},
-  {title: "Ant-Man And The Wasp.mp4", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1AstKQ5KLX94k7RFIlsu2St9um8sS_w_M/view&sa=D", genre: "Movies"},
-  {title: "Black.Panther.2018.mp4", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1GdMksUpH7ghCBF1j4sEmJU9hmZ3pPpkn/view&sa=D", genre: "Movies"},
-  {title: "Deadpool 2016 360p.ts", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1VH_yELQQxJxhuyxsU80q8eMsEeaxNomz/view&sa=D", genre: "Movies"},
-  {title: "Zootopia 2016 360p.ts", url: "https://www.google.com/url?q=https://drive.google.com/file/d/1HYeIrbf8A-vfvJsvYP59AQzG9l8nt03h/view&sa=D",
+  {title: "The CupHead Show", url: "https://drive.google.com/drive/folders/1j_K1YV4w_sHAzwEAaUMl-qSk4qjrYSJ_", genre: "Cartoons"},
+  {title: "Five Nights at Freddy's full movie", url: "https://drive.google.com/file/d/1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY/view", genre: "Horror"},
+  {title: "Kirby: Right Back At Ya!", url: "https://drive.google.com/drive/folders/1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw", genre: "Cartoons"},
+  {title: "Avengers Endgame (2019)", url: "https://drive.google.com/file/d/1UsxNtlBxGFp955GwEB-s8wYJCA6bXt7e/view", genre: "Movies"},
+  {title: "Ant-Man And The Wasp", url: "https://drive.google.com/file/d/1AstKQ5KLX94k7RFIlsu2St9um8sS_w_M/view", genre: "Movies"},
+  {title: "Black Panther (2018)", url: "https://drive.google.com/file/d/1GdMksUpH7ghCBF1j4sEmJU9hmZ3pPpkn/view", genre: "Movies"},
+  {title: "Zootopia (2016)", url: "https://drive.google.com/file/d/1HYeIrbf8A-vfvJsvYP59AQzG9l8nt03h/view", genre: "Movies"},
+  {title: "Garfield & Friends", url: "https://drive.google.com/drive/folders/1u9Pr61UADQ2cTYvkIkqpEjCzJf9bM9Ic", genre: "Shows"},
+  {title: "Gravity Falls", url: "https://drive.google.com/drive/folders/1Q6s6AB7BAOndbFy4xcnuX4FjO8uHnqaZ", genre: "Shows"},
+  {title: "Smiling Friends", url: "https://drive.google.com/drive/u/1/folders/1px8IK0jaSlqj3fK-yawRwD0aQD4pXGld", genre: "Shows"},
+  {title: "SpongeBob Seasons 1-15", url: "https://drive.google.com/drive/folders/1cOFMumtLFERJqS6Y5oTyBb6ZRXNHCgZF", genre: "Shows"},
+  {title: "Sonic the Hedgehog Comics", url: "https://drive.google.com/drive/folders/1Rl63s8mf0P41xy-bVNamLoEz7xAkf-nL", genre: "Comics"},
+  {title: "Invincible (1-144)", url: "https://drive.google.com/drive/folders/1s21qKWyfqZeqr5ptjJDCFIrUSCPrVMhb", genre: "Comics"},
+  {title: "Jujutsu Kaisen S1", url: "https://drive.google.com/drive/folders/1pQ5CC4NeCB9bj-IrIHeu2x3nskc4gPeS", genre: "Anime"},
+  // ...add more if you like
+];
+
+/* ================
+   UI: genres & chips
+   ================ */
+const fixedGenres = ["All","Movies","Comics","Shows","Horror","Cartoons","Comedy","Anime"];
+const genresEl = document.getElementById('genres');
+genresEl.innerHTML = fixedGenres.map((g,i)=>`<button class="chip ${i===0?'active':''}" data-genre="${g}">${g}</button>`).join('');
+genresEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.chip'); if(!btn) return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active'); renderList();
+});
+
+function clearSearch(){ document.getElementById('q').value=''; renderList(); }
+
+/* ================
+   Render results
+   ================ */
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function renderList(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const active = document.querySelector('.chip.active')?.dataset.genre || 'All';
+  const results = document.getElementById('results');
+  const filtered = items.filter(i=>{
+    if(active!=='All' && i.genre.toLowerCase()!==active.toLowerCase()) return false;
+    if(!q) return true;
+    return (i.title + ' ' + i.genre).toLowerCase().includes(q);
+  });
+
+  results.innerHTML = filtered.map((it,idx)=>`
+    <div class="item" role="button" tabindex="0" onclick="openItem(${idx})" onkeypress="if(event.key==='Enter') openItem(${idx})">
+      <div class="thumb">${escapeHtml(it.title.split(' ').slice(0,2).map(s=>s[0]||'').join(''))}</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${escapeHtml(it.title)}</div>
+        <div class="meta">${escapeHtml(it.genre)}</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);padding-left:6px">↗</div>
+    </div>
+  `).join('') || '<div style="color:var(--muted);padding:8px">Nothing found</div>';
+}
+window.openItem = function(i){
+  const url = items[i]?.url;
+  if(!url) return;
+  // open direct
+  window.open(url,'_blank');
+};
+renderList();
+
+/* ============================
+   Floating app logos (center)
+   ============================ */
+const logos = [
+  {id:'g', label:'Games', url: items[0].url},
+  {id:'m', label:'Movies', url: items[3].url},
+  {id:'c', label:'Comics', url: items[11].url},
+  {id:'s', label:'Shows', url: items[7].url},
+  {id:'a', label:'Anime', url: items[13].url},
+  {id:'x', label:'Random', url: items[1].url}
+];
+
+const orbit = document.getElementById('orbit');
+(function createLogos(){
+  const angleStep = 360 / logos.length;
+  logos.forEach((L,i)=>{
+    const el = document.createElement('button');
+    el.className = 'app-logo';
+    el.innerHTML = `<div style="text-align:center">${L.label.split(' ').slice(0,2).join('<br>')}</div>`;
+    el.setAttribute('data-angle', i * angleStep);
+    el.style.setProperty('--ang', `${i*angleStep}deg`);
+    // initial placement using trigonometry
+    orbit.appendChild(el);
+    el.addEventListener('click', ()=>{ window.open(L.url,'_blank'); });
+  });
+  // position once
+  positionLogos();
+  // gently rotate the whole orbit for subtle motion
+  let t=0;
+  setInterval(()=>{ t+=0.002; orbit.style.transform = `rotate(${t}turn)`; }, 30);
+})();
+
+function positionLogos(){
+  const box = orbit.getBoundingClientRect();
+  const cx = box.width/2, cy = box.height/2;
+  const rx = Math.min(box.width, box.height) * 0.38;
+  const ry = rx * 0.72;
+  const nodes = orbit.querySelectorAll('.app-logo');
+  nodes.forEach((n,idx)=>{
+    const angle = (parseFloat(n.dataset.angle) || 0) * (Math.PI/180);
+    // small dynamic offset so they float
+    const ox = Math.cos(angle) * rx;
+    const oy = Math.sin(angle) * ry;
+    // random jitter
+    const jitterX = Math.sin(Date.now()/1200 + idx) * 6;
+    const jitterY = Math.cos(Date.now()/1000 + idx) * 6;
+    n.style.left = `${cx + ox - n.offsetWidth/2 + jitterX}px`;
+    n.style.top  = `${cy + oy - n.offsetHeight/2 + jitterY}px`;
+    // slow individual float animation via CSS transform
+    const scale = 1 + Math.sin((Date.now()/800 + idx)/6) * 0.03;
+    n.style.transform = `translateZ(0) scale(${scale})`;
+  });
+  requestAnimationFrame(positionLogos);
+}
+
+/* ============================
+   Canvas stars + shooting stars
+   ============================ */
+const canvas = document.getElementById('space');
+const ctx = canvas.getContext('2d', { alpha: false });
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function resizeCanvas(){
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.floor(window.innerWidth * DPR);
+  canvas.height = Math.floor(window.innerHeight * DPR);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const STAR_COUNT = Math.round((window.innerWidth * window.innerHeight) / 14000);
+const stars = [];
+for(let i=0;i<STAR_COUNT;i++){
+  stars.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    r: Math.random()*1.6 + 0.2,
+    alpha: Math.random()*0.9 + 0.1,
+    twinkleSpeed: Math.random()*0.02 + 0.002,
+    phase: Math.random()*Math.PI*2
+  });
+}
+
+const shootingStars = [];
+function spawnShootingStar(){
+  // spawn from random side upper-left quadrant
+  const fromLeft = Math.random() < 0.5;
+  const startX = fromLeft ? Math.random()*window.innerWidth*0.25 : Math.random()*(window.innerWidth*0.75)+window.innerWidth*0.25;
+  const startY = Math.random()*window.innerHeight*0.35;
+  const angle = (Math.random()*20 + 10) * Math.PI/180; // shallow angle
+  const speed = Math.random()*900 + 600;
+  shootingStars.push({
+    x: startX,
+    y: startY,
+    vx: Math.cos(angle) * speed * (fromLeft ? 1 : -1),
+    vy: Math.sin(angle) * speed,
+    life: 0,
+    ttl: Math.random()*800 + 600,
+    len: Math.random()*220 + 120
+  });
+  // schedule next
+  setTimeout(spawnShootingStar, Math.random()*3500 + 900);
+}
+// initial spawn schedule
+setTimeout(spawnShootingStar, 1200);
+
+let last = performance.now();
+function tick(now){
+  const dt = Math.min(40, now - last);
+  last = now;
+  // clear
+  ctx.fillStyle = '#04050a';
+  ctx.fillRect(0,0, canvas.width/DPR, canvas.height/DPR);
+
+  // draw stars (twinkle)
+  for(let s of stars){
+    s.phase += s.twinkleSpeed * (dt/16);
+    const a = s.alpha * (0.6 + Math.sin(s.phase)*0.4);
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,255,${a})`;
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  // draw subtle larger glows (sparks)
+  for(let i=0;i<6;i++){
+    const idx = (i*73) % stars.length;
+    const s = stars[idx];
+    ctx.beginPath();
+    const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r*12);
+    grad.addColorStop(0, 'rgba(255,255,255,0.03)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(s.x - s.r*12, s.y - s.r*12, s.r*24, s.r*24);
+    ctx.fill();
+  }
+
+  // shooting stars
+  for(let i = shootingStars.length-1; i>=0; i--){
+    const st = shootingStars[i];
+    st.x += st.vx * (dt/1000);
+    st.y += st.vy * (dt/1000);
+    st.life += dt;
+    const t = st.life / st.ttl;
+    // draw trail
+    const tx = st.x - st.vx * 0.02;
+    const ty = st.y - st.vy * 0.02;
+    ctx.save();
+    const grad = ctx.createLinearGradient(st.x, st.y, tx, ty);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(st.x, st.y);
+    ctx.lineTo(st.x - st.vx/60, st.y - st.vy/60);
+    ctx.stroke();
+
+    // head
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255,255,255,${1 - t})`;
+    ctx.arc(st.x, st.y, 2.6 + (1-t)*2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    if(st.life > st.ttl || st.x < -100 || st.x > window.innerWidth+100 || st.y > window.innerHeight+200){
+      shootingStars.splice(i,1);
+    }
+  }
+
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* keep star positions on resize */
+window.addEventListener('resize', ()=>{
+  // reposition stars within new bounds
+  for(let s of stars){
+    s.x = Math.min(window.innerWidth, s.x);
+    s.y = Math.min(window.innerHeight, s.y);
+  }
+});
+
+/* accessibility: focus on search when press / */
+window.addEventListener('keydown', (e)=>{
+  if(e.key === '/') { e.preventDefault(); document.getElementById('q').focus(); }
+});
+</script>
+</body>
+</html>
+
