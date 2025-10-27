@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bing's Hub</title>
+<style>
+  :root{
+    --bg:#030312;
+    --accent:#42a9ff;
+    --glow:#8b5cf6;
+    --glass:rgba(255,255,255,0.06);
+    --text:#eaf4ff;
+    --muted:rgba(220,235,255,0.7);
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family:"Inter",system-ui,sans-serif;
+    color:var(--text);
+    background:radial-gradient(circle at 20% 30%, #05051b 0%, #01010a 100%);
+    overflow:hidden;
+  }
+
+  /* Space background canvas */
+  #space {
+    position:fixed;
+    inset:0;
+    z-index:0;
+    background:#030312;
+    display:block;
+  }
+
+  /* Nebula Layer */
+  .nebula {
+    position:fixed;
+    inset:-10%;
+    z-index:1;
+    background:
+      radial-gradient(40% 40% at 15% 20%, rgba(66,169,255,0.2), transparent 70%),
+      radial-gradient(40% 40% at 85% 70%, rgba(139,92,246,0.2), transparent 70%),
+      radial-gradient(40% 40% at 50% 50%, rgba(255,150,90,0.1), transparent 70%);
+    filter:blur(40px) brightness(1.3);
+    mix-blend-mode:screen;
+    animation: drift 60s ease-in-out infinite;
+  }
+  @keyframes drift {
+    0%{transform:scale(1) translate(0,0);}
+    50%{transform:scale(1.05) translate(-3%,3%);}
+    100%{transform:scale(1) translate(0,0);}
+  }
+
+  /* Glass panels */
+  .panel {
+    position:fixed;
+    top:20px;
+    left:20px;
+    z-index:3;
+    padding:20px;
+    width:min(420px,90%);
+    border-radius:16px;
+    background:var(--glass);
+    backdrop-filter:blur(14px) saturate(1.4);
+    border:1px solid rgba(255,255,255,0.1);
+    box-shadow:0 0 60px rgba(66,169,255,0.3);
+  }
+
+  .logo {
+    font-size:22px;
+    font-weight:800;
+    background:linear-gradient(90deg,var(--accent),var(--glow));
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+
+  .subtitle {font-size:13px;color:var(--muted);margin-top:4px;}
+
+  .search {
+    margin-top:16px;
+    display:flex;
+    gap:8px;
+  }
+  .search input {
+    flex:1;
+    padding:10px 12px;
+    border:0;
+    border-radius:10px;
+    background:rgba(255,255,255,0.05);
+    color:var(--text);
+    outline:none;
+    font-size:14px;
+  }
+  .search button {
+    border:0;
+    border-radius:10px;
+    background:var(--accent);
+    color:#000;
+    cursor:pointer;
+    font-weight:600;
+    padding:0 12px;
+  }
+
+  .genres {
+    margin-top:12px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+  .chip {
+    padding:7px 12px;
+    border-radius:999px;
+    background:transparent;
+    border:1px solid rgba(255,255,255,0.1);
+    font-size:13px;
+    color:var(--muted);
+    cursor:pointer;
+    transition:0.2s;
+  }
+  .chip.active {
+    background:linear-gradient(90deg,var(--accent),var(--glow));
+    color:#000;
+    border:0;
+  }
+
+  .results {
+    position:fixed;
+    left:20px;
+    bottom:20px;
+    z-index:3;
+    width:min(600px,90%);
+    max-height:50vh;
+    overflow-y:auto;
+    padding:14px;
+    border-radius:16px;
+    background:var(--glass);
+    backdrop-filter:blur(14px) saturate(1.4);
+    border:1px solid rgba(255,255,255,0.1);
+    box-shadow:0 0 60px rgba(66,169,255,0.3);
+  }
+  .results .item {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:10px;
+    border-radius:10px;
+    cursor:pointer;
+    transition:0.25s;
+  }
+  .results .item:hover {
+    background:rgba(255,255,255,0.06);
+    transform:translateY(-2px) scale(1.02);
+  }
+  .thumb {
+    width:48px;height:56px;
+    border-radius:8px;
+    background:linear-gradient(135deg,rgba(255,255,255,0.1),transparent);
+    display:grid;place-items:center;
+    font-weight:700;
+    color:var(--muted);
+  }
+  .meta {font-size:12px;color:var(--muted);}
+
+  ::-webkit-scrollbar {width:10px;}
+  ::-webkit-scrollbar-thumb {
+    background:linear-gradient(var(--accent),var(--glow));
+    border-radius:8px;
+  }
+
+  @media(max-width:900px){
+    .panel {left:12px;right:12px;width:auto;}
+    .results {left:12px;right:12px;width:auto;}
+  }
+</style>
+</head>
+<body>
+<canvas id="space"></canvas>
+<div class="nebula"></div>
+
+<div class="panel">
+  <div class="logo">Bing's Hub</div>
+  <div class="subtitle">Explore and Discover</div>
+  <div class="search">
+    <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()">
+    <button onclick="clearSearch()">✕</button>
+  </div>
+  <div class="genres" id="genres"></div>
+</div>
+
+<div class="results" id="results"></div>
+
+<script>
+const items = [
+  {title: "The CupHead Show", url: "https://drive.google.com/drive/folders/1j_K1YV4w_sHAzwEAaUMl-qSk4qjrYSJ_", genre: "Cartoons"},
+  {title: "Five Nights at Freddy's full movie", url: "https://drive.google.com/file/d/1OyO1OdhtfwR883Uvi0QPP5iooGcxTVSY/view", genre: "Horror"},
+  {title: "Kirby: Right Back At Ya!", url: "https://drive.google.com/drive/folders/1LawIFQ48UCdP3-VUan7iWTm4l5EonWYw", genre: "Cartoons"},
+  {title: "Avengers Endgame (2019)", url: "https://drive.google.com/file/d/1UsxNtlBxGFp955GwEB-s8wYJCA6bXt7e/view", genre: "Movies"},
+  {title: "Ant-Man And The Wasp", url: "https://drive.google.com/file/d/1AstKQ5KLX94k7RFIlsu2St9um8sS_w_M/view", genre: "Movies"},
+  {title: "Black Panther (2018)", url: "https://drive.google.com/file/d/1GdMksUpH7ghCBF1j4sEmJU9hmZ3pPpkn/view", genre: "Movies"},
+  {title: "Zootopia (2016)", url: "https://drive.google.com/file/d/1HYeIrbf8A-vfvJsvYP59AQzG9l8nt03h/view", genre: "Movies"},
+  {title: "Garfield & Friends", url: "https://drive.google.com/drive/folders/1u9Pr61UADQ2cTYvkIkqpEjCzJf9bM9Ic", genre: "Shows"},
+  {title: "Gravity Falls", url: "https://drive.google.com/drive/folders/1Q6s6AB7BAOndbFy4xcnuX4FjO8uHnqaZ", genre: "Shows"},
+  {title: "Smiling Friends", url: "https://drive.google.com/drive/folders/1px8IK0jaSlqj3fK-yawRwD0aQD4pXGld", genre: "Shows"},
+  {title: "SpongeBob Seasons 1-15", url: "https://drive.google.com/drive/folders/1cOFMumtLFERJqS6Y5oTyBb6ZRXNHCgZF", genre: "Shows"},
+  {title: "Sonic the Hedgehog Comics", url: "https://drive.google.com/drive/folders/1Rl63s8mf0P41xy-bVNamLoEz7xAkf-nL", genre: "Comics"},
+  {title: "Invincible (1-144)", url: "https://drive.google.com/drive/folders/1s21qKWyfqZeqr5ptjJDCFIrUSCPrVMhb", genre: "Comics"},
+  {title: "Jujutsu Kaisen S1", url: "https://drive.google.com/drive/folders/1pQ5CC4NeCB9bj-IrIHeu2x3nskc4gPeS", genre: "Anime"},
+    {title: "One Punch Man", url: "https://drive.google.com/drive/folders/1yGjMeMX0_1vUHa6XbpszYGe5yLqYLKRc", genre: "Anime"},
+      {title: "Adventure Time", url: "https://drive.google.com/drive/folders/1OwoKydzUQUUp6n-Nh7CCAQXGLfchU8Ta", genre: "Cartoons"},
+  // ...add more if you like
+];
+
+
+const fixedGenres = ["All","Movies","Comics","Shows","Horror","Cartoons","Anime"];
+const genresEl = document.getElementById('genres');
+genresEl.innerHTML = fixedGenres.map((g,i)=>`<button class="chip ${i===0?'active':''}" data-genre="${g}">${g}</button>`).join('');
+genresEl.addEventListener('click', e=>{
+  const btn = e.target.closest('.chip');
+  if(!btn) return;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+});
+function clearSearch(){document.getElementById('q').value='';renderList();}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+function renderList(){
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  const active = document.querySelector('.chip.active')?.dataset.genre || 'All';
+  const results = document.getElementById('results');
+  const filtered = items.filter(i=>{
+    if(active!=='All' && i.genre.toLowerCase()!==active.toLowerCase()) return false;
+    if(!q) return true;
+    return (i.title+' '+i.genre).toLowerCase().includes(q);
+  });
+  results.innerHTML = filtered.map((it,idx)=>`
+    <div class="item" onclick="window.open('${it.url}','_blank')">
+      <div class="thumb">${escapeHtml(it.title[0]||'?')}</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${escapeHtml(it.title)}</div>
+        <div class="meta">${escapeHtml(it.genre)}</div>
+      </div>
+    </div>
+  `).join('') || `<div style="color:var(--muted);padding:10px;">Nothing found.</div>`;
+}
+renderList();
+
+/* === Cinematic Stars + Shooting Stars === */
+const canvas = document.getElementById('space');
+const ctx = canvas.getContext('2d');
+let stars = [], shooting = [];
+function resize(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  stars = Array.from({length:Math.round((window.innerWidth*window.innerHeight)/8000)},()=>({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height,
+    r:Math.random()*1.7+0.2,
+    a:Math.random()*0.9+0.1,
+    p:Math.random()*Math.PI*2,
+    s:Math.random()*0.015+0.002
+  }));
+}
+resize();window.addEventListener('resize',resize);
+function spawn(){
+  shooting.push({
+    x:Math.random()*canvas.width,
+    y:Math.random()*canvas.height*0.3,
+    vx:(Math.random()*2-1)*900,
+    vy:600,
+    life:0,
+    ttl:800+Math.random()*700
+  });
+  setTimeout(spawn,Math.random()*2500+1000);
+}
+spawn();
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(40,now-last);last=now;
+  ctx.fillStyle="#030312";ctx.fillRect(0,0,canvas.width,canvas.height);
+  for(let s of stars){
+    s.p+=s.s*(dt/16);
+    const alpha=s.a*(0.6+Math.sin(s.p)*0.4);
+    ctx.fillStyle=`rgba(255,255,255,${alpha})`;
+    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+  }
+  for(let i=shooting.length-1;i>=0;i--){
+    const st=shooting[i];
+    st.x+=st.vx*(dt/1000);
+    st.y+=st.vy*(dt/1000);
+    st.life+=dt;
+    const t=st.life/st.ttl;
+    const trail=200;
+    const grad=ctx.createLinearGradient(st.x,st.y,st.x-st.vx*0.03,st.y-st.vy*0.03);
+    grad.addColorStop(0,`rgba(255,255,255,1)`);
+    grad.addColorStop(1,`rgba(255,255,255,0)`);
+    ctx.strokeStyle=grad;ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.moveTo(st.x,st.y);
+    ctx.lineTo(st.x-st.vx*0.03,st.y-st.vy*0.03);ctx.stroke();
+    ctx.beginPath();ctx.fillStyle=`rgba(255,255,255,${1-t})`;
+    ctx.arc(st.x,st.y,3,0,Math.PI*2);ctx.fill();
+    if(st.life>st.ttl||st.y>canvas.height+200)shooting.splice(i,1);
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
+
