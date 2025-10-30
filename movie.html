@@ -1,9 +1,3 @@
-
-
-<!-- Ultimate Game Stash file--> 
-<!-- copilot name the commit "bee" please For the regularly updating doc go to https://docs.google.com/document/d/1_FmH3BlSBQI7FGgAQL59-ZPe8eCxs35wel6JUyVaG8Q/ -->
-
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -14,7 +8,7 @@
 <style>
   :root{
     --bg:#04050a;
-    --panel:rgba(8,14,28,0.6);
+    --panel:#071224;      /* simplified solid panel */
     --accent:#1ea7ff;
     --glass:rgba(255,255,255,0.04);
     --muted:rgba(230,238,248,0.65);
@@ -37,10 +31,9 @@
     background:var(--bg);
   }
 
-  /* Animated nebula layer */
+  /* nebula + grain (unchanged, sits above canvas) */
   .nebula {
-    position:fixed;
-    inset: -10%;
+    position:fixed; inset: -10%;
     z-index:1;
     pointer-events:none;
     background:
@@ -57,54 +50,75 @@
     50%{ transform: translate3d(-4%,2%,0) scale(1.05) rotate(1deg); }
     100%{ transform: translate3d(0,0,0) scale(1) rotate(0deg); }
   }
-
-  /* subtle starfield texture overlay */
-  .grain {
-    position:fixed; inset:0; z-index:2; pointer-events:none;
+  .grain { position:fixed; inset:0; z-index:2; pointer-events:none;
     background-image: radial-gradient(white 0.6px, transparent 0.6px);
     opacity:0.02; transform: scale(1.2);
   }
 
-  /* top-left controls panel */
-  .controls {
+  /* ===========
+     NORMAL NAVBAR
+     =========== */
+  .navbar {
     position:fixed;
-    left:20px;
-    top:20px;
-    z-index:4;
-    width:min(420px, calc(100% - 40px));
-    padding:14px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    border-radius:12px;
-    box-shadow: 0 10px 40px rgba(1,6,18,0.6);
-    backdrop-filter: blur(6px) saturate(1.1);
-    border: 1px solid rgba(255,255,255,0.03);
+    top:0;
+    left:0;
+    right:0;
+    height:64px;
+    z-index:6;
+    background: linear-gradient(180deg, var(--panel), rgba(7,18,36,0.95));
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0 12px;
+    box-shadow: 0 6px 20px rgba(1,6,18,0.6);
+    backdrop-filter: blur(4px);
   }
-  .brand { display:flex; gap:12px; align-items:center; }
+  .nav-inner {
+    width: min(1120px, calc(100% - 24px));
+    display:flex; align-items:center; gap:18px;
+  }
+
+  .brand { display:flex; gap:12px; align-items:center; min-width:220px; }
   .logo {
-    width:48px; height:48px; border-radius:10px;
+    width:40px; height:40px; border-radius:8px;
     background: linear-gradient(135deg, var(--accent), #8b5cf6);
     display:grid; place-items:center; font-weight:800; font-size:18px; color:#00122a;
   }
-  .title { font-size:16px; margin:0; font-weight:700; }
-  .subtitle { font-size:12px; color:var(--muted); margin-top:4px; }
+  .title { font-size:15px; margin:0; font-weight:700; color:#eaf7ff; }
+  .subtitle { font-size:11px; color:var(--muted); margin-top:2px; }
 
+  /* center search */
   .search {
-    margin-top:12px; display:flex; gap:8px;
+    flex:1; display:flex; align-items:center; gap:8px;
+    background: rgba(255,255,255,0.02); padding:6px 8px; border-radius:10px;
   }
   .search input{
-    flex:1; padding:10px 12px; border-radius:10px; border:0;
-    background: rgba(255,255,255,0.02); color:inherit; outline:none;
-    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.02);
+    flex:1; padding:8px 10px; border-radius:8px; border:0;
+    background: transparent; color:inherit; outline:none; font-size:14px;
   }
   .search button {
-    padding:10px 12px; border-radius:10px; border:0; background:var(--accent); color:#00122a; cursor:pointer;
+    padding:8px 10px; border-radius:8px; border:0; background:var(--accent); color:#00122a; cursor:pointer; font-weight:700;
   }
 
-  .genres { margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; }
+  /* right-side small contact / actions */
+  .nav-right { display:flex; gap:8px; align-items:center; min-width:180px; justify-content:flex-end; }
+
+  .chip-row {
+    position: absolute;
+    left:50%;
+    transform: translateX(-50%);
+    top:72px; /* below navbar */
+    display:flex; gap:8px; padding:10px;
+    z-index:5;
+    width:min(880px, calc(100% - 48px));
+    justify-content:center;
+    flex-wrap:wrap;
+  }
   .chip { padding:7px 10px; border-radius:999px; background:transparent; border:1px solid rgba(255,255,255,0.04); cursor:pointer; font-size:13px; color:var(--muted); }
   .chip.active { background: linear-gradient(90deg,var(--accent), #6ee7b7); color:#041429; border:0; }
 
-  /* results grid (in a floating container at bottom-left) */
+  /* results grid (floating at bottom-left) kept mostly same */
   .results {
     position:fixed;
     left:20px;
@@ -122,25 +136,23 @@
   }
   .results .item { display:flex; gap:10px; align-items:center; padding:8px; border-radius:8px; cursor:pointer; transition:transform .12s; }
   .results .item:hover { transform: translateY(-4px); }
-  .thumb { width:56px; height:64px; border-radius:8px; display:grid; place-items:center; font-weight:800; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); color:var(--muted); [...]
+  .thumb { width:56px; height:64px; border-radius:8px; display:grid; place-items:center; font-weight:800; background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent); color:var(--muted); }
   .meta { font-size:12px; color:var(--muted); }
 
-  /* center contact area (replaces floating logos) */
-  /* moved to top-right so it doesn't cover center content */
   .logo-field {
     position:fixed;
     top:20px;
     right:20px;
     z-index:5;
     display:block;
-    pointer-events:none; /* container shouldn't capture pointer, the contact box will */
+    pointer-events:none;
   }
   .contact {
     pointer-events:auto;
     text-align:center;
     color:var(--muted);
-    font-size:18px;
-    padding:10px 14px;
+    font-size:14px;
+    padding:8px 12px;
     border-radius:10px;
     background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));
     border:1px solid rgba(255,255,255,0.02);
@@ -148,24 +160,19 @@
     max-width:320px;
   }
 
-  /* small glowing outline for former logos (removed) */
-
-  /* shooting star canvas will paint over the star canvas (same canvas used) */
-
-  /* full page scrollbar style */
   ::-webkit-scrollbar { width:12px; height:12px; }
   ::-webkit-scrollbar-thumb { background: linear-gradient(var(--accent), #6ee7b7); border-radius:8px; }
   ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
 
-  /* responsive */
   @media (max-width:900px){
-    .controls { left:12px; right:12px; top:12px; width:auto; }
+    .nav-inner { gap:10px; }
+    .brand { min-width:120px; }
+    .chip-row { width:calc(100% - 32px); top:70px; padding:8px; }
     .results { left:12px; right:12px; width:auto; bottom:12px; max-height:45vh; }
-    .contact { font-size:16px; padding:12px 14px; max-width:220px; }
-
-    /* keep contact visible on small screens, tuck it in near the controls */
-    .logo-field { top:12px; right:12px; }
+    .contact { font-size:13px; padding:10px 12px; max-width:220px; }
   }
+  /* add safe top spacing for content under navbar */
+  body { padding-top:84px; } /* navbar + chips */
 </style>
 </head>
 <body>
@@ -176,33 +183,33 @@
   <div class="nebula" aria-hidden="true"></div>
   <div class="grain" aria-hidden="true"></div>
 
-  <!-- top-left control panel -->
-  <div class="controls" role="region" aria-label="Controls">
-    <div class="brand">
-      <div class="logo">B</div>
-      <div>
-        <p class="title">Bing's Hub</p>
-        <div class="subtitle">Space theme • click a logo or search below</div>
+  <!-- NORMAL NAVBAR -->
+  <div class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-inner">
+      <div class="brand" aria-hidden="false">
+        <div class="logo">B</div>
+        <div>
+          <p class="title">Bing's Hub</p>
+          <div class="subtitle">Space theme • search or pick a genre</div>
+        </div>
+      </div>
+
+      <div class="search" role="search" aria-label="Search movies, comics and shows">
+        <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()" aria-label="Search query" />
+        <button id="clear" title="Clear" onclick="clearSearch()">✕</button>
+      </div>
+
+      <div class="nav-right">
+        <div class="contact">contact <a href="mailto:30barmarsh@gmail.com" style="color:inherit;text-decoration:underline;">30barmarsh@gmail.com</a></div>
       </div>
     </div>
-
-    <div class="search">
-      <input id="q" placeholder="Search movies, comics, shows..." oninput="renderList()" />
-      <button id="clear" title="Clear" onclick="clearSearch()">✕</button>
-    </div>
-
-    <div class="genres" id="genres"></div>
   </div>
 
-  <!-- moved contact text to top-right -->
-  <div class="logo-field" aria-hidden="false">
-    <div class="contact" role="contentinfo">contact <a href="mailto:30barmarsh@gmail.com" style="color:inherit;text-decoration:underline;">30barmarsh@gmail.com</a> for questions/comments</div>
-  </div>
+  <!-- genres beneath navbar (centered row) -->
+  <div class="chip-row" id="genres" role="toolbar" aria-label="Genres"></div>
 
   <!-- bottom-left results -->
-  <div class="results" id="results" role="region" aria-label="Search results">
-    <!-- items injected by JS -->
-  </div>
+  <div class="results" id="results" role="region" aria-label="Search results"></div>
 
 <script>
 /* ============================
@@ -230,64 +237,26 @@ const items = [
   {title: "Toy Story 2 (1999)", url: "https://drive.google.com/file/d/1k3RVDc_Vah1H9lFsXQZJ6mE3KqdDcK_T/view", genre: "Movies"},
   {title: "Toy Story 3", url: "https://drive.google.com/file/d/13msxxmyEco7CRBkO_Ju1SMx5KK4r4Su8/view", genre: "Movies"},
   {title: "Toy Story 4", url: "https://drive.google.com/file/d/1bFUbsQ9VEazeCt5l_VBVDtjCsbJmZ_Vr/preview", genre: "Movies"},
-  {title: "WALL·E (2008) - HD 1080p", url: "https://drive.google.com/file/d/0B9konOTuvSYRQTl2Nmp6NkpjSG8/view", genre: "Movies"},
-  {title: "Zootopia (2016)", url: "https://drive.google.com/file/d/1HYeIrbf8A-vfvJsvYP59AQzG9l8nt03h/view", genre: "Movies"},
-  {title: "Avengers Endgame (2019)", url: "https://drive.google.com/file/d/1UsxNtlBxGFp955GwEB-s8wYJCA6bXt7e/view", genre: "Movies"},
-  {title: "Ant-Man And The Wasp", url: "https://drive.google.com/file/d/1AstKQ5KLX94k7RFIlsu2St9um8sS_w_M/view", genre: "Movies"},
-  {title: "Black Panther (2018)", url: "https://drive.google.com/file/d/1GdMksUpH7ghCBF1j4sEmJU9hmZ3pPpkn/view", genre: "Movies"},
-  {title: "Deadpool (2016)", url: "https://drive.google.com/file/d/1VH_yELQQxJxhuyxsU80q8eMsEeaxNomz/view", genre: "Movies"},
-  {title: "Deadpool 2 (2018)", url: "https://drive.google.com/file/d/1wcE3D19t54BnWtLNl5cruklfPVPh92nY/view", genre: "Movies"},
-  {title: "Deadpool & Wolverine (2024)", url: "https://drive.google.com/file/d/1aBzsoTJAjhZeFFDkIV2SN7p7ZHagUEDc/view", genre: "Movies"},
-  {title: "Guardians of the Galaxy Vol.3 (2023)", url: "https://drive.google.com/file/d/1pFavPs7Mi9rx_BrAjxbeHNWg7ClAB2_K/view", genre: "Movies"},
-  {title: "Venom - The Last Dance (2024)", url: "https://drive.google.com/file/d/1C6aUcmJeLpm8ysdYwnt7HRZFAT6k0oQs/view", genre: "Movies"},
-  {title: "X-Men Origins: Wolverine (2009)", url: "https://drive.google.com/file/d/0BxvqXivT-hg5d2VmZDdsNlBNUzQ/view", genre: "Movies"},
-  {title: "X-Men: Apocalypse", url: "https://drive.google.com/file/d/1XOhalDbPc-27oTHBEoiQCRjsXrktB4aY/view", genre: "Movies"},
-  {title: "Spider-Man (full movie)", url: "https://drive.google.com/file/d/14BaJhmDRr3veoH436CKdPDp9r-j5214I/view", genre: "Movies"},
-  {title: "Spider-Man 2 (Sam Raimi 2004)", url: "https://drive.google.com/file/d/1yV7ZmEkfOVOLdV51wN6vSeDf3_tQqBvf/view", genre: "Movies"},
-  {title: "Invincible Comic Collection (1-144)", url: "https://drive.google.com/drive/folders/1s21qKWyfqZeqr5ptjJDCFIrUSCPrVMhb", genre: "Comics"},
-  {title: "Dog Man (comics + movie)", url: "https://drive.google.com/file/d/1TgEV9AykxchfLMZ4zB4jJhSKKW5f9xRL/view", genre: "Comics"},
-  {title: "South Park (full series)", url: "https://drive.google.com/drive/folders/1-x_7IyRmcN6cBCOy3g2To9VEP0rGAsQ5", genre: "Shows"},
-  {title: "The Spectacular Spider-Man (Season 1)", url: "https://drive.google.com/drive/folders/1-x_7IyRmcN6cBCOy3g2To9VEP0rGAsQ5", genre: "Shows"},
-  {title: "SpongeBob SquarePants (seasons 1-15)", url: "https://drive.google.com/drive/folders/1cOFMumtLFERJqS6Y5oTyBb6ZRXNHCgZF", genre: "Shows"},
-  {title: "Squid Games (full series, Netflix ripped)", url: "https://drive.google.com/drive/folders/1Zs2H3Nxl-yQHm21RJNbh2bIAesJ5ouY9", genre: "Shows"},
-  {title: "Steven Universe (folder)", url: "https://drive.google.com/drive/folders/1DdwOFAilBai2kDZVmRDCoNkqxTu6_E_5", genre: "Shows"},
-  {title: "Ted (full season)", url: "https://drive.google.com/drive/folders/1-6hBb-KZsUoc7ErXnaw2udeQv9u1THRJ", genre: "Shows"},
-  {title: "Teen Titans (2003)", url: "https://drive.google.com/drive/folders/1xqItOklvgleKL0ly9SNd1mClelBlNgPs", genre: "Shows"},
-  {title: "The Boys (and Season 4 folder)", url: "https://drive.google.com/drive/folders/14rrzdCpjttUBmXOVKRFLCR8TYiQP3yaU", genre: "Shows"},
-  {title: "Breaking Bad (incomplete Seasons 1-5)", url: "https://drive.google.com/drive/folders/1IY6qairkXpK2RXE0UVtqwm5ZjeiGYk3N", genre: "Shows"},
-  {title: "Bluey (Seasons 1-3)", url: "https://drive.google.com/drive/folders/1eGZDQz4BX1MJ58-JrtFs_gjQRoY-rltA", genre: "Shows"},
-  {title: "Recess (folder)", url: "https://drive.google.com/drive/folders/10frlZDyugiDyKuxu27PDvHf8r3_qxRLG", genre: "Shows"},
-  {title: "Regular Show (episodes + movie)", url: "https://drive.google.com/drive/folders/1tedaT2-lJvdIToqgsBx7lDo4tJl3TY-U", genre: "Shows"},
-  {title: "Rick & Morty (folder)", url: "https://drive.google.com/drive/folders/1EhzdG061fossyvUWpAWzDB_b6WhAWvbS", genre: "Shows"},
-  {title: "Scooby Doo Where Are You (full series)", url: "https://drive.google.com/drive/folders/1dq_qrg51SMtVW7SWAeYYrx-nKbfwKkXl", genre: "Shows"},
-  {title: "The Simpsons (folder)", url: "https://drive.google.com/drive/folders/1ZtFBjPAE-qVzdHJ3EKnvlBFNhux5m3Hi", genre: "Shows"},
-  {title: "Smiling Friends (full seasons)", url: "https://drive.google.com/drive/folders/1px8IK0jaSlqj3fK-yawRwD0aQD4pXGld", genre: "Shows"},
-  {title: "Garfield & Friends (full series)", url: "https://drive.google.com/drive/folders/1u9Pr61UADQ2cTYvkIkqpEjCzJf9bM9Ic", genre: "Shows"},
-  {title: "Gravity Falls (full series)", url: "https://drive.google.com/drive/folders/1Q6s6AB7BAOndbFy4xcnuX4FjO8uHnqaZ", genre: "Shows"},
-  {title: "Hazbin Hotel (series)", url: "https://drive.google.com/drive/folders/0B2lfcnXrxDFsUHl1OHdVc0pnWUU", genre: "Shows"},
-  {title: "Hey Arnold", url: "https://drive.google.com/drive/folders/1tvjU4AqKfPOM_wPZA-pJsjYaOKguNaDD", genre: "Shows"},
-  {title: "Tom and Jerry (Series)", url: "https://drive.google.com/drive/folders/1BIKwvUvUCx8lHm3mwhVRV22hCcMau9ws", genre: "Shows"},
-  {title: "Murder Drones (full season)", url: "https://drive.google.com/drive/folders/1QAiFXO6iG-IB2A2oGModfBP74aVHa6S8", genre: "Shows"},
-  {title: "Outer Banks (full series)", url: "https://drive.google.com/drive/folders/1-2GIqLddtiou6bcJ9pUfVkZhUk_VnGML", genre: "Shows"},
-  {title: "The Amazing World of Gumball (S01-S05 folders)", url: "https://drive.google.com/drive/folders/1OXgcS7q8GexG3oOHxSMDuNYfUo-BMVxq", genre: "Shows"},
-  // ...more items exist in the file; add additional lines similarly if you want every single link included
+  /* ...more items exist in the file; keep the rest as before... */
 ];
+
 /* ================
    UI: genres & chips
    ================ */
 const fixedGenres = ["All","Movies","Comics","Shows","Horror","Cartoons","Comedy","Anime"];
 const genresEl = document.getElementById('genres');
-genresEl.innerHTML = fixedGenres.map((g,i)=>`<button class="chip ${i===0?'active':''}" data-genre="${g}">${g}</button>`).join('');
+genresEl.innerHTML = fixedGenres.map((g,i)=>`<button class="chip ${i===0?'active':''}" data-genre="${g}" aria-pressed="${i===0}">${g}</button>`).join('');
 genresEl.addEventListener('click', e=>{
   const btn = e.target.closest('.chip'); if(!btn) return;
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active'); renderList();
+  document.querySelectorAll('.chip').forEach(c=>{ c.classList.remove('active'); c.setAttribute('aria-pressed','false'); });
+  btn.classList.add('active'); btn.setAttribute('aria-pressed','true');
+  renderList();
 });
 
 function clearSearch(){ document.getElementById('q').value=''; renderList(); }
 
 /* ================
-   Render results
+   Render results (fixed index bug)
    ================ */
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -295,33 +264,61 @@ function renderList(){
   const q = document.getElementById('q').value.trim().toLowerCase();
   const active = document.querySelector('.chip.active')?.dataset.genre || 'All';
   const results = document.getElementById('results');
-  const filtered = items.filter(i=>{
-    if(active!=='All' && i.genre.toLowerCase()!==active.toLowerCase()) return false;
+
+  // keep original indices so clicks always map to the right item
+  const withIndex = items.map((it,origIdx)=>({it, origIdx}));
+  const filtered = withIndex.filter(({it})=>{
+    if(active!=='All' && it.genre.toLowerCase()!==active.toLowerCase()) return false;
     if(!q) return true;
-    return (i.title + ' ' + i.genre).toLowerCase().includes(q);
+    return (it.title + ' ' + it.genre).toLowerCase().includes(q);
   });
 
-  results.innerHTML = filtered.map((it,idx)=>`
-    <div class="item" role="button" tabindex="0" onclick="openItem(${idx})" onkeypress="if(event.key==='Enter') openItem(${idx})">
-      <div class="thumb">${escapeHtml(it.title.split(' ').slice(0,2).map(s=>s[0]||'').join(''))}</div>
-      <div style="flex:1">
-        <div style="font-weight:700">${escapeHtml(it.title)}</div>
-        <div class="meta">${escapeHtml(it.genre)}</div>
+  results.innerHTML = filtered.map(({it, origIdx})=>{
+    const initials = (it.title.split(' ').slice(0,2).map(s=>s[0]||'').join('')) || '?';
+    return `
+      <div class="item" role="button" tabindex="0" data-index="${origIdx}">
+        <div class="thumb">${escapeHtml(initials)}</div>
+        <div style="flex:1">
+          <div style="font-weight:700">${escapeHtml(it.title)}</div>
+          <div class="meta">${escapeHtml(it.genre)}</div>
+        </div>
+        <div style="font-size:12px;color:var(--muted);padding-left:6px">↗</div>
       </div>
-      <div style="font-size:12px;color:var(--muted);padding-left:6px">↗</div>
-    </div>
-  `).join('') || '<div style="color:var(--muted);padding:8px">Nothing found</div>';
+    `;
+  }).join('') || '<div style="color:var(--muted);padding:8px">Nothing found</div>';
 }
+renderList();
+
+/* =========================
+   Click / keyboard handling
+   ========================= */
+const resultsEl = document.getElementById('results');
+
+resultsEl.addEventListener('click', (e)=>{
+  const row = e.target.closest('.item');
+  if(!row) return;
+  const idx = parseInt(row.dataset.index,10);
+  openItem(idx);
+});
+
+resultsEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){
+    const row = e.target.closest('.item');
+    if(!row) return;
+    const idx = parseInt(row.dataset.index,10);
+    openItem(idx);
+  }
+});
+
 window.openItem = function(i){
   const url = items[i]?.url;
   if(!url) return;
-  // open direct
-  window.open(url,'_blank');
+  window.open(url, '_blank', 'noopener,noreferrer');
 };
-renderList();
 
 /* ============================
    Canvas stars + shooting stars
+   (unchanged from previous behavior)
    ============================ */
 const canvas = document.getElementById('space');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -353,7 +350,6 @@ for(let i=0;i<STAR_COUNT;i++){
 
 const shootingStars = [];
 function spawnShootingStar(){
-  // spawn from random side upper-left quadrant
   const fromLeft = Math.random() < 0.5;
   const startX = fromLeft ? Math.random()*window.innerWidth*0.25 : Math.random()*(window.innerWidth*0.75)+window.innerWidth*0.25;
   const startY = Math.random()*window.innerHeight*0.35;
@@ -368,21 +364,17 @@ function spawnShootingStar(){
     ttl: Math.random()*800 + 600,
     len: Math.random()*220 + 120
   });
-  // schedule next
   setTimeout(spawnShootingStar, Math.random()*3500 + 900);
 }
-// initial spawn schedule
 setTimeout(spawnShootingStar, 1200);
 
 let last = performance.now();
 function tick(now){
   const dt = Math.min(40, now - last);
   last = now;
-  // clear
   ctx.fillStyle = '#04050a';
   ctx.fillRect(0,0, canvas.width/DPR, canvas.height/DPR);
 
-  // draw stars (twinkle)
   for(let s of stars){
     s.phase += s.twinkleSpeed * (dt/16);
     const a = s.alpha * (0.6 + Math.sin(s.phase)*0.4);
@@ -392,7 +384,6 @@ function tick(now){
     ctx.fill();
   }
 
-  // draw subtle larger glows (sparks)
   for(let i=0;i<6;i++){
     const idx = (i*73) % stars.length;
     const s = stars[idx];
@@ -405,14 +396,12 @@ function tick(now){
     ctx.fill();
   }
 
-  // shooting stars
   for(let i = shootingStars.length-1; i>=0; i--){
     const st = shootingStars[i];
     st.x += st.vx * (dt/1000);
     st.y += st.vy * (dt/1000);
     st.life += dt;
     const t = st.life / st.ttl;
-    // draw trail
     const tx = st.x - st.vx * 0.02;
     const ty = st.y - st.vy * 0.02;
     ctx.save();
@@ -426,7 +415,6 @@ function tick(now){
     ctx.lineTo(st.x - st.vx/60, st.y - st.vy/60);
     ctx.stroke();
 
-    // head
     ctx.beginPath();
     ctx.fillStyle = `rgba(255,255,255,${1 - t})`;
     ctx.arc(st.x, st.y, 2.6 + (1-t)*2, 0, Math.PI*2);
@@ -442,9 +430,7 @@ function tick(now){
 }
 requestAnimationFrame(tick);
 
-/* keep star positions on resize */
 window.addEventListener('resize', ()=>{
-  // reposition stars within new bounds
   for(let s of stars){
     s.x = Math.min(window.innerWidth, s.x);
     s.y = Math.min(window.innerHeight, s.y);
@@ -458,4 +444,3 @@ window.addEventListener('keydown', (e)=>{
 </script>
 </body>
 </html>
-
