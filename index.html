@@ -80,10 +80,27 @@
   }
 
   .brand { display:flex; gap:12px; align-items:center; min-width:220px; }
-  .logo {
-    width:40px; height:40px; border-radius:8px;
-    background: linear-gradient(135deg, var(--accent), #8b5cf6);
-    display:grid; place-items:center; font-weight:800; font-size:18px; color:#00122a;
+.logo {
+  width:40px;
+  height:40px;
+  border-radius:8px;
+  background: linear-gradient(135deg, var(--accent), #8b5cf6); /* fallback */
+  display:grid;
+  place-items:center;
+  font-weight:800;
+  font-size:18px;
+  color:#00122a;
+  overflow:hidden;
+}
+
+/* make the image cover the square cleanly */
+.logo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+  border-radius:8px;
+
   }
   .title { font-size:18px; margin:0; font-weight:700; color:#eaf7ff; }
   .subtitle { font-size:11px; color:var(--muted); margin-top:2px; }
@@ -187,7 +204,13 @@
   <div class="navbar" role="navigation" aria-label="Main navigation">
     <div class="nav-inner">
       <div class="brand" aria-hidden="false">
-        <div class="logo">B</div>
+   <!-- Replace this existing .logo block:
+  <div class="logo">B</div>
+-->
+<div class="logo" aria-hidden="false">
+  <img id="logoImg" src="IMG_0769.png" alt="Bing's Hub logo" loading="lazy" />
+</div>
+
         <div>
           <p class="title">Bing's Hub</p>
         </div>
@@ -480,7 +503,17 @@ window.addEventListener('resize', ()=>{
 window.addEventListener('keydown', (e)=>{
   if(e.key === '/') { e.preventDefault(); document.getElementById('q').focus(); }
 });
+  // fallback if IMG_0769.png fails to load
+const logoImg = document.getElementById('logoImg');
+if (logoImg) {
+  logoImg.addEventListener('error', ()=> {
+    // hide broken image and show single-letter fallback
+    logoImg.style.display = 'none';
+    const logoEl = document.querySelector('.logo');
+    logoEl.textContent = 'B';
+    logoEl.style.display = 'grid';
+  });
+}
 </script>
 </body>
 </html>
-
