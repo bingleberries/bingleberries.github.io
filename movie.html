@@ -80,27 +80,13 @@
   }
 
   .brand { display:flex; gap:12px; align-items:center; min-width:220px; }
-   }
-
-  
-.logo {
-  width:40px;
-  height:40px;
-  border-radius:8px;
-  overflow:hidden;           /* keeps rounded corners */
-  background:none;          /* remove old gradient background */
-  display:block;
-}
-.logo img {
-  width:100%;
-  height:100%;
-  object-fit:cover;         /* crop/fit nicely */
-  display:block;
-}
-    .title { font-size:18px; margin:0; font-weight:700; color:#eaf7ff; }
-
+  .logo {
+    width:40px; height:40px; border-radius:8px;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    display:grid; place-items:center; font-weight:800; font-size:18px; color:#00122a;
   }
-  
+  .title { font-size:18px; margin:0; font-weight:700; color:#eaf7ff; }
+  .subtitle { font-size:11px; color:var(--muted); margin-top:2px; }
 
   /* center search */
   .search {
@@ -201,10 +187,7 @@
   <div class="navbar" role="navigation" aria-label="Main navigation">
     <div class="nav-inner">
       <div class="brand" aria-hidden="false">
-        <div class="logo">
-  <img src="IMG_0769.png" alt="Bing's Hub logo" />
-</div>
-
+        <div class="logo">B</div>
         <div>
           <p class="title">Bing's Hub</p>
         </div>
