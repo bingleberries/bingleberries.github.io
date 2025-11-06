@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Minesweeper</title>
+<style>
+  :root{--bg:#c0c0c0;--panel:#e0e0e0;--border:#888;--text:#000;--flag:#f00;--mine:#000}
+  *{box-sizing:border-box;font-family:Arial, sans-serif}
+  body{background:var(--bg);min-height:100vh;margin:0;display:flex;align-items:center;justify-content:center;color:var(--text);position:relative;overflow:hidden}
+  /* make the app size itself to the board so modes don't look weird */
+  .app{padding:12px;background:var(--panel);border:2px solid var(--border);border-radius:6px;z-index:1;width:max-content}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  h1{margin:0;font-size:18px}
+  .controls{display:flex;gap:8px;align-items:center}
+  button{padding:6px 8px;border:1px solid var(--border);background:#dcdcdc;cursor:pointer;border-radius:4px}
+  #board{display:grid;gap:0px;border:2px solid var(--border);background:#999}
+  .cell{width:24px;height:24px;background:#c0c0c0;display:flex;align-items:center;justify-content:center;font-weight:bold;cursor:pointer;border:none;box-shadow:inset -2px -2px 0 #fff, inset 2px 2px 0 #888;transition:transform 700ms ease, opacity 700ms ease;}
+  .cell.revealed{background:#e0e0e0;cursor:default;box-shadow:inset 2px 2px 0 #fff, inset -2px -2px 0 #888;}
+  .cell.flag{color:var(--flag)}
+  .cell.mine{color:var(--mine)}
+  footer{margin-top:6px;font-size:12px;text-align:center}
+  /* Win screen */
+  #winScreen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;color:#fff;font-weight:bold;z-index:4;flex-direction:column}
+  #winScreen h2{font-size:48px;margin:0 0 12px}
+  #winScreen button{padding:10px 18px;font-size:16px;border-radius:6px;border:none;background:#28a745;color:#fff;cursor:pointer}
+  /* Lose screen */
+  #loseScreen{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;color:#fff;font-weight:bold;z-index:4;flex-direction:column}
+  #loseScreen h2{font-size:48px;margin:0 0 12px}
+  #loseScreen button{padding:10px 18px;font-size:16px;border-radius:6px;border:none;background:#dc3545;color:#fff;cursor:pointer}
+  /* make header elements wrap nicely on narrow screens */
+  @media (max-width:520px){ .app{transform:scale(0.9);} }
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+<h1>Minesweeper</h1>
+<div class="controls">
+  <div>
+    <button id="easy">Easy</button>
+    <button id="medium">Medium</button>
+    <button id="hard">Hard</button>
+    <button id="reset">New</button>
+  </div>
+  <!-- Timer display -->
+  <div style="margin-left:8px;font-weight:bold">Time: <span id="timer">0</span>s</div>
+</div>
+</header>
+<div id="board"></div>
+</div>
+
+<div id="winScreen">
+  <h2>YOU WIN!</h2>
+  <button id="explosiveRestart">Play Again (explode)</button>
+</div>
+
+<div id="loseScreen">
+  <h2>YOU LOST!</h2>
+  <button id="retryBtn">Try Again</button>
+</div>
+
+<script>
+const boardEl=document.getElementById('board');
+const resetBtn=document.getElementById('reset');
+const winScreen=document.getElementById('winScreen');
+const explosiveRestart=document.getElementById('explosiveRestart');
+const loseScreen=document.getElementById('loseScreen');
+const retryBtn=document.getElementById('retryBtn');
+const timerEl=document.getElementById('timer');
+let size=9,minesCount=10,grid=[],revealedCount=0,flagged=0,gameOver=false,showMines=false;
+let timer=0; let timerInterval=null; let timerStarted=false;
+
+function startTimer(){ if(timerStarted) return; timerStarted=true; timerInterval = setInterval(()=>{ timer++; timerEl.textContent = timer; },1000); }
+function stopTimer(){ if(timerInterval){ clearInterval(timerInterval); timerInterval = null;} timerStarted=false; }
+function resetTimer(){ stopTimer(); timer=0; timerEl.textContent='0'; }
+
+function createBoard(){
+  resetTimer();
+  clearBoardElements();
+  boardEl.innerHTML='';
+  boardEl.style.gridTemplateColumns=`repeat(${size},1fr)`;
+  revealedCount=0; flagged=0; gameOver=false;
+  grid=Array.from({length:size},(_,r)=>Array.from({length:size},(_,c)=>({r,c,mine:false,adj:0,revealed:false,flagged:false,el:null})))
+  for(let r=0;r<size;r++) for(let c=0;c<size;c++){
+    const cell=grid[r][c]; const div=document.createElement('div'); div.className='cell'; div.dataset.r=r; div.dataset.c=c;
+    div.addEventListener('click',onCellClick); div.addEventListener('contextmenu',onCellRightClick);
+    cell.el=div; boardEl.appendChild(div);
+  }
+  placeMinesRandom(); calculateAdjacency();
+}
+
+function clearBoardElements(){ // remove inline transforms from any leftover cells
+  const els = boardEl.querySelectorAll('.cell'); els.forEach(el=>{el.style.transform=''; el.style.opacity='';});
+}
+
+function placeMinesRandom(){let placed=0;while(placed<minesCount){const r=Math.floor(Math.random()*size),c=Math.floor(Math.random()*size);if(!grid[r][c].mine){grid[r][c].mine=true;placed++;}}}
+function calculateAdjacency(){const dirs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];for(let r=0;r<size;r++) for(let c=0;c<size;c++){if(grid[r][c].mine)continue;let cnt=0;for(const [dr,dc] of dirs){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<size&&cc>=0&&cc<size&&grid[rr][cc].mine)cnt++;}grid[r][c].adj=cnt;}}
+
+function revealCell(r,c){const cell=grid[r][c]; if(cell.revealed||cell.flagged||gameOver)return; cell.revealed=true; revealedCount++; cell.el.classList.add('revealed');
+  if(cell.mine){cell.el.textContent='💣'; return;}
+  if(cell.adj>0){cell.el.textContent=cell.adj; cell.el.style.color=numberColor(cell.adj);} else{
+    const dirs=[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]]; for(const [dr,dc] of dirs){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<size&&cc>=0&&cc<size)revealCell(rr,cc);}
+  }
+}
+
+function onCellClick(){if(gameOver) return; startTimer(); const r=parseInt(this.dataset.r,10),c=parseInt(this.dataset.c,10); const cell=grid[r][c]; if(cell.flagged)return;
+  if(cell.mine){ triggerLoss(); return; } revealCell(r,c); checkWin();
+}
+function onCellRightClick(e){e.preventDefault();if(gameOver)return; const r=parseInt(this.dataset.r,10),c=parseInt(this.dataset.c,10); const cell=grid[r][c]; if(cell.revealed)return; cell.flagged=!cell.flagged;
+  if(!timerStarted) startTimer();
+  if(cell.flagged){cell.el.textContent='🚩'; cell.el.classList.add('flag'); flagged++;}else{cell.el.textContent=''; cell.el.classList.remove('flag'); flagged--;}}
+
+function revealAllMines(){for(let r=0;r<size;r++)for(let c=0;c<size;c++){const cell=grid[r][c]; if(cell.mine){cell.el.classList.add('revealed'); cell.el.textContent='💣';}}}
+
+function checkWin(){if(revealedCount===size*size-minesCount){gameOver=true; stopTimer(); showWinScreen();}}
+
+function showWinScreen(){winScreen.style.display='flex';}
+
+function numberColor(n){switch(n){case 1:return '#0000ff';case 2:return '#008200';case 3:return '#ff0000';case 4:return '#000080';case 5:return '#800000';case 6:return '#008080';case 7:return '#000';case 8:return '#555';default:return '#000';}}
+
+// Explode animation: fling every cell outward then restart when done
+function explodeAndRestart(){
+  winScreen.style.display='none';
+  gameOver=true;
+  stopTimer();
+  const rect = boardEl.getBoundingClientRect();
+  const cells = boardEl.querySelectorAll('.cell');
+  cells.forEach(el=>{
+    const cx = el.getBoundingClientRect().left + el.offsetWidth/2;
+    const cy = el.getBoundingClientRect().top + el.offsetHeight/2;
+    const dx = cx - (rect.left + rect.width/2);
+    const dy = cy - (rect.top + rect.height/2);
+    const angle = Math.atan2(dy,dx);
+    const dist = Math.hypot(dx,dy);
+    const randomExtra = 100 + Math.random()*400;
+    const tx = Math.cos(angle) * (dist + randomExtra);
+    const ty = Math.sin(angle) * (dist + randomExtra) - 100 * Math.random();
+    const rot = (Math.random()-0.5)*720;
+    el.style.transition = 'transform 900ms cubic-bezier(.2,.8,.2,1), opacity 900ms ease';
+    el.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${0.8+Math.random()*0.8})`;
+    el.style.opacity = '0';
+  });
+  // wait for animation to finish then recreate board
+  setTimeout(()=>{
+    // reset transforms (clean slate) and recreate board
+    clearBoardElements();
+    createBoard();
+  },950);
+}
+
+function triggerLoss(){ gameOver=true; stopTimer(); revealAllMines(); setTimeout(()=>{ explodeAndThenShowRetry(); },600);} 
+function explodeAndThenShowRetry(){
+  const rect = boardEl.getBoundingClientRect();
+  const cells = boardEl.querySelectorAll('.cell');
+  cells.forEach(el=>{
+    const cx = el.getBoundingClientRect().left + el.offsetWidth/2;
+    const cy = el.getBoundingClientRect().top + el.offsetHeight/2;
+    const dx = cx - (rect.left + rect.width/2);
+    const dy = cy - (rect.top + rect.height/2);
+    const angle = Math.atan2(dy,dx);
+    const dist = Math.hypot(dx,dy);
+    const randomExtra = 100 + Math.random()*400;
+    const tx = Math.cos(angle)*(dist+randomExtra);
+    const ty = Math.sin(angle)*(dist+randomExtra) - 100*Math.random();
+    const rot = (Math.random()-0.5)*720;
+    el.style.transition = 'transform 900ms cubic-bezier(.2,.8,.2,1), opacity 900ms ease';
+    el.style.transform = `translate(${tx}px, ${ty}px) rotate(${rot}deg) scale(${0.8+Math.random()*0.8})`;
+    el.style.opacity = '0';
+  });
+  setTimeout(()=>{ loseScreen.style.display='flex'; },950);
+}
+retryBtn.addEventListener('click',()=>{ loseScreen.style.display='none'; clearBoardElements(); createBoard(); });
+
+// wire up controls
+createBoard();
+document.getElementById('easy').addEventListener('click',()=>{size=9;minesCount=10;createBoard();});
+document.getElementById('medium').addEventListener('click',()=>{size=12;minesCount=25;createBoard();});
+document.getElementById('hard').addEventListener('click',()=>{size=16;minesCount=40;createBoard();});
+resetBtn.addEventListener('click',createBoard);
+explosiveRestart.addEventListener('click',explodeAndRestart);
+
+// Secret cheat: press 1 to toggle bomb visibility
+let cheatShow=false;document.addEventListener('keydown',e=>{if(e.key==='1'){cheatShow=!cheatShow;for(let r=0;r<size;r++)for(let c=0;c<size;c++){const cell=grid[r][c];if(cell.mine&&!cell.revealed){cell.el.textContent=cheatShow?'💣':'';}}}});
+</script>
+</body>
+</html>
