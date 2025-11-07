@@ -1,344 +1,468 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Cypress Street — Photo-mapped PS2 Dream Sandbox (Hotlink UI)</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cypress Street — Low-Poly Horror Sandbox</title>
 <style>
-  html,body{height:100%;margin:0;background:#060510;overflow:hidden;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#E8F6FF}
-  #ui {
-    position:fixed;left:12px;top:12px;z-index:60;background:rgba(2,6,12,0.72);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);
-    color:#d8eaf2;font-size:13px;width:360px;max-height:86vh;overflow:auto;
-  }
-  #ui h2{margin:0 0 6px 0;font-size:14px}
-  label{display:block;margin-top:6px;font-size:12px;color:#bcd}
-  input[type="text"]{width:100%;padding:6px;border-radius:6px;border:1px solid #2b2b2b;background:#0b0b10;color:#e8f6ff;box-sizing:border-box}
-  button{margin-top:8px;padding:8px 10px;border-radius:6px;border:none;background:#7dd3fc;color:#012;cursor:pointer}
-  #canvasWrap{position:fixed;left:0;top:0;width:100%;height:100%;display:block;z-index:0}
+  html,body{height:100%;margin:0;background:#050308;overflow:hidden;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#dfefff}
+  #ui{position:fixed;left:12px;top:12px;z-index:60;background:rgba(5,6,8,0.68);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);width:340px;font-size:13px}
+  #ui h1{margin:0;font-size:14px}
+  #hint{color:#a9c3d0;margin-top:6px}
+  .btn{background:#7dd3fc;border:none;padding:6px 8px;border-radius:6px;color:#012;cursor:pointer}
+  #canvasWrap{position:fixed;left:0;top:0;width:100%;height:100%;z-index:0}
   canvas{ image-rendering: pixelated; display:block; }
-  a.ref{color:#ffdca3;font-size:12px}
-  #applyStatus{font-size:12px;margin-top:6px;color:#ffdca3}
-  #help{font-size:12px;color:#9ecfe6;margin-top:6px}
+  #log{margin-top:8px;height:90px;overflow:auto;background:rgba(0,0,0,0.25);padding:6px;border-radius:6px}
+  #dialogBox{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);min-width:420px;max-width:86%;z-index:70;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.06));padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);display:none;color:#eaf8ff}
+  #dialogSpeaker{font-weight:800;margin-bottom:6px;color:#ffd4d4}
+  #dialogText{font-size:14px;line-height:1.35;max-height:220px;overflow:auto}
   #credits{position:fixed;right:12px;bottom:12px;color:#7da8b8;font-size:12px;z-index:60}
 </style>
 </head>
 <body>
 <div id="ui">
-  <h2>Cypress Street — Photo mapping</h2>
-  <div>Paste direct image URLs (hotlinks) for the facades you want mapped. If a link fails due to CORS, try copying image to an image-host (imgur) or use the "Fetch sample" links below to manually open the source image and copy link.</div>
-
-  <label>Family Video front (recommended: archived storefront photo / news image)</label>
-  <input id="urlFamilyVideo" type="text" placeholder="https://.../familyvideo-front.jpg"/>
-
-  <label>84 Cypress façade (hardware block)</label>
-  <input id="url84cypress" type="text" placeholder="https://.../84-cypress.jpg"/>
-
-  <label>WESCO sign / storefront</label>
-  <input id="urlWesco" type="text" placeholder="https://.../wesco.jpg"/>
-
-  <button id="applyBtn">Apply Photos</button>
-  <div id="applyStatus"></div>
-
-  <div id="help">
-    <b>Quick fetch / references</b>
-    <div style="margin-top:6px">
-      Family Video article (open then copy image): <a class="ref" href="https://www.manisteenews.com/local-news/article/Manistee-Family-Video-to-close-after-25-years-15714202.php" target="_blank">ManisteeNews — Family Video close</a>
-    </div>
-    <div style="margin-top:6px">
-      84 Cypress listing (has photos): <a class="ref" href="https://www.golighthouserealty.com/commercial-for-sale/84-Cypress-Street-Manistee-MI-49660-383657175" target="_blank">MLS / listing — 84 Cypress</a>
-    </div>
-    <div style="margin-top:6px">
-      Wesco storefront references: <a class="ref" href="https://www.yelp.com/biz/wesco-manistee" target="_blank">Wesco Manistee — Yelp / photos</a>
-    </div>
-
-    <div style="margin-top:10px;color:#d8eaf2">If you want, paste these URLs here and press Apply. If hotlink fails due to CORS, upload image to <code>imgur.com</code> or another host and paste that link instead.</div>
-  </div>
+  <h1>Cypress Street — Low-Poly Horror</h1>
+  <div id="hint">W = backward • S = forward (inverted) • Click to lock • Drag to look • E interact • R ride • Space pulse</div>
+  <div id="log"></div>
 </div>
-
+<div id="dialogBox" role="dialog" aria-live="polite">
+  <div id="dialogSpeaker"></div>
+  <div id="dialogText"></div>
+</div>
 <div id="canvasWrap"></div>
-<div id="credits">Built: PS2 dream — mapping UI • Hotlink mode</div>
+<div id="credits">Low-poly horror • Collisions • PS2 style</div>
 
 <!-- Three.js -->
 <script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
 
 <script>
-/* ========= Core scene (PS2 sandbox) ========= */
-// logging helper
-function log(s){ const el=document.getElementById('applyStatus'); el.textContent = s; }
+// ----------------- helpers -----------------
+const logEl = document.getElementById('log');
+function log(s){ const d=document.createElement('div'); d.textContent=s; logEl.prepend(d); }
+log('Booting low-poly Cypress Street...');
 
-// renderer + pixel scale to get PS2 feel
-const container = document.getElementById('canvasWrap');
-const pixelScale = 0.55;
+const canvasWrap = document.getElementById('canvasWrap');
+const pixelScale = 0.6; // low internal resolution for PS2 vibe
 const canvas = document.createElement('canvas');
 canvas.style.width = window.innerWidth + 'px';
 canvas.style.height = window.innerHeight + 'px';
 canvas.style.imageRendering = 'pixelated';
-container.appendChild(canvas);
-const renderer = new THREE.WebGLRenderer({antialias:false, canvas:canvas});
-renderer.setClearColor(0x060510, 1);
+canvasWrap.appendChild(canvas);
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+renderer.setClearColor(0x030309,1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x060510, 12, 80);
+scene.fog = new THREE.Fog(0x030309, 6, 45);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 500);
-camera.position.set(0,1.6,6);
+const camera = new THREE.PerspectiveCamera(68, window.innerWidth/window.innerHeight, 0.1, 500);
+camera.position.set(0,1.6,8);
 
-function resizeRenderer(){
+// resize
+function resize(){
   const w = Math.max(1, Math.floor(window.innerWidth * pixelScale));
   const h = Math.max(1, Math.floor(window.innerHeight * pixelScale));
   renderer.setSize(w,h,false);
   canvas.style.width = window.innerWidth + 'px';
   canvas.style.height = window.innerHeight + 'px';
-  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
 }
-resizeRenderer();
+resize();
+window.addEventListener('resize', resize);
 
-// basic lighting
-const hemi = new THREE.HemisphereLight(0xffd8b8, 0x22334a, 0.6); scene.add(hemi);
-const dir = new THREE.DirectionalLight(0xffcda0, 0.7); dir.position.set(-5,10,3); scene.add(dir);
-const ambient = new THREE.AmbientLight(0x202030, 0.4); scene.add(ambient);
+// ----------------- lighting & mood -----------------
+const hemi = new THREE.HemisphereLight(0xffe6d0, 0x101022, 0.35); scene.add(hemi);
+const moon = new THREE.DirectionalLight(0xccd9ff, 0.24); moon.position.set(-6,8,2); scene.add(moon);
+const redLamp = new THREE.PointLight(0xff8866, 0.6, 20, 2); redLamp.position.set(4,3,-6); scene.add(redLamp);
+const ambient = new THREE.AmbientLight(0x202030, 0.3); scene.add(ambient);
 
-// ground
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:0x19202a, roughness:1}));
-ground.rotation.x = -Math.PI/2; ground.position.y = 0; scene.add(ground);
-const road = new THREE.Mesh(new THREE.PlaneGeometry(80,8), new THREE.MeshStandardMaterial({color:0x222831, roughness:1}));
-road.rotation.x = -Math.PI/2; road.position.set(0,0.01,0); scene.add(road);
+// ----------------- low-poly materials -----------------
+function LP(colorHex){
+  return new THREE.MeshStandardMaterial({color: colorHex, roughness:1, metalness:0, flatShading:true});
+}
 
-// helper: create a simple building plane for mapping
-function makeFaçade(w,h,baseColor){
+// ----------------- geometry helpers (low poly) -----------------
+function lpBox(w,h,d,color){ return new THREE.Mesh(new THREE.BoxGeometry(w,h,d,1,1,1), LP(color)); }
+function lpPlane(w,h,color){ return new THREE.Mesh(new THREE.PlaneGeometry(w,h,1,1), new THREE.MeshStandardMaterial({color, side:THREE.DoubleSide, flatShading:true})); }
+function lpCone(r,h,c){ return new THREE.Mesh(new THREE.ConeGeometry(r,h,6,1), LP(c)); }
+function lpTorus(r,t,c){ return new THREE.Mesh(new THREE.TorusGeometry(r,t,6,6), LP(c)); }
+
+// ----------------- ground + road -----------------
+const ground = lpBox(200,0.01,200, 0x0e0f12); ground.position.y = -0.01; scene.add(ground);
+const road = lpBox(80,0.02,6, 0x16171a); road.position.set(0,0,0); scene.add(road);
+
+// ----------------- street layout (horror map) -----------------
+const world = new THREE.Group(); scene.add(world);
+
+// function to add simple façade with front plane for texturing/placeholders
+function makeFacade(w,h,baseColor){
   const g = new THREE.Group();
-  const box = new THREE.Mesh(new THREE.BoxGeometry(w,h,0.6), new THREE.MeshStandardMaterial({color:baseColor, roughness:1}));
-  g.add(box);
-  // add a front plane for textures (slightly offset)
-  const frontPlane = new THREE.Mesh(new THREE.PlaneGeometry(w-0.18, h-0.18), new THREE.MeshStandardMaterial({color:0xffffff}));
-  frontPlane.position.set(0,0,0.31);
-  frontPlane.name = 'frontPlane';
-  g.add(frontPlane);
+  const body = lpBox(w,h,0.8, baseColor);
+  body.position.z = 0;
+  g.add(body);
+  const front = new THREE.Mesh(new THREE.PlaneGeometry(w*0.92,h*0.92), new THREE.MeshStandardMaterial({color:0x111111, flatShading:true}));
+  front.position.z = 0.45; g.add(front);
+  front.name = 'front';
   return g;
 }
 
-// basic street objects
-const streetGroup = new THREE.Group();
-scene.add(streetGroup);
+// place Cypress-style blocks (low-poly horror)
+const wesco = makeFacade(6,3.6, 0x3b3b42); wesco.position.set(-9,1.8,-5); wesco.userData.key='wesco'; world.add(wesco);
+const fv = makeFacade(7,3.5, 0x2b1b22); fv.position.set(5,1.75,-2); fv.userData.key='familyVideo'; world.add(fv);
+const b84 = makeFacade(12,4.2, 0x2f2f30); b84.position.set(16,2.1,-6); b84.userData.key='84cypress'; world.add(b84);
 
-// WESCO block
-const wescoG = makeFaçade(6,3.6,0x4a4f57);
-wescoG.position.set(-10,1.8,-5);
-wescoG.userData.key = 'wesco';
-streetGroup.add(wescoG);
+// add some small houses (low poly)
+for(let i=0;i<5;i++){
+  const h = makeFacade(3.2,2.2, 0x26313a + i*0x001020);
+  h.position.set(-2 + i*3.6,1.1,6 + (i%2? -2.6:2.2));
+  world.add(h);
+}
 
-// Family Video block (enterable)
-const fvG = makeFaçade(7,3.5,0x3b2b38);
-fvG.position.set(6,1.75,-2);
-fvG.userData.key = 'familyVideo';
-streetGroup.add(fvG);
-// doorway marker (we'll use to enter)
-const fvDoor = new THREE.Mesh(new THREE.PlaneGeometry(1,1.9), new THREE.MeshBasicMaterial({color:0x111111}));
-fvDoor.position.set(6,0.95,-2.31);
-fvDoor.userData.isDoor = 'familyVideo';
-scene.add(fvDoor);
+// flickering lamp posts
+const lamps = [];
+for(let i=0;i<4;i++){
+  const lp = lpBox(0.12,2.4,0.12, 0x141212); lp.position.set(-18 + i*11,1.2,-12 + (i%2?2:-2));
+  const p = new THREE.PointLight(0xffe0b2, 0.8, 8, 2); p.position.set(lp.position.x,2.6,lp.position.z+0.5); scene.add(p);
+  world.add(lp); lamps.push(p);
+}
 
-// 84 Cypress facade
-const b84 = makeFaçade(12,4.2,0x3f3f3f);
-b84.position.set(14,2.1,-6);
-b84.userData.key = '84cypress';
-streetGroup.add(b84);
+// benches/mailboxes/bike (low poly)
+const bench = lpBox(1.6,0.3,0.5, 0x5b3b2b); bench.position.set(2,0.2,-6.5); world.add(bench);
+const mbox = new THREE.Group(); const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.9,6), LP(0x111111)); pole.position.y = 0.45; mbox.add(pole); const bx = lpBox(0.6,0.4,0.4,0x7a4f32); bx.position.set(0,0.75,0); mbox.add(bx); mbox.position.set(4,0,-2); world.add(mbox);
 
-// small props (bike, bench)
-const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.35,0.5), new THREE.MeshStandardMaterial({color:0x5a3b2b}));
-bench.position.set(2,0.2,-6.5); scene.add(bench);
-
+// low-poly bike
 const bike = new THREE.Group();
-const body = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.12,0.3), new THREE.MeshStandardMaterial({color:0x175f4f}));
-body.position.set(0.1,0.6,0); bike.add(body);
-const wheelL = new THREE.Mesh(new THREE.TorusGeometry(0.35,0.06,8,16), new THREE.MeshStandardMaterial({color:0x111})); wheelL.rotation.x = Math.PI/2; wheelL.position.set(0.5,0.35,0); bike.add(wheelL);
-const wheelR = wheelL.clone(); wheelR.position.set(-0.6,0.35,0); bike.add(wheelR);
-bike.position.set(-3,0,-4); bike.userData.key='bike'; scene.add(bike);
+bike.add(lpBox(1.1,0.12,0.28, 0x264d44)); bike.add(lpBox(0.4,0.12,0.16,0x1a1a1a)).children[0].position.set(-0.15,0.75,0);
+const wh1 = lpTorus(0.35,0.06, 0x0b0b0b); wh1.rotation.x = Math.PI/2; wh1.position.set(0.5,0.35,0); bike.add(wh1);
+const wh2 = wh1.clone(); wh2.position.set(-0.6,0.35,0); bike.add(wh2);
+bike.position.set(-3,0,-4); bike.userData.key='bike'; world.add(bike);
 
-// Family Video interior (simple, hidden)
-const fvInterior = new THREE.Group(); fvInterior.visible=false; fvInterior.position.set(0,0,0);
-const fvFloor = new THREE.Mesh(new THREE.PlaneGeometry(8,10), new THREE.MeshStandardMaterial({color:0x1b1416}));
-fvFloor.rotation.x = -Math.PI/2; fvInterior.add(fvFloor);
-scene.add(fvInterior);
+// river hint
+const river = new THREE.Mesh(new THREE.PlaneGeometry(150,40), LP(0x0b1a2b));
+river.rotation.x = -Math.PI/2; river.position.set(0,-0.05,-90); scene.add(river);
 
-// texture loader helper with CORS error handling
-const loader = new THREE.TextureLoader();
-loader.crossOrigin = '';// allow crossOrigin where possible
+// simple mirror (Family Video logo plane)
+const fvFront = fv.getObjectByName('front');
+fvFront.material.color.setHex(0x1b1b1b);
 
-async function loadTexture(url){
-  return new Promise((res, rej)=>{
-    loader.load(url,
-      (tex)=>{ tex.minFilter = THREE.LinearMipMapLinearFilter; tex.magFilter = THREE.NearestFilter; res(tex); },
-      undefined,
-      (err)=>{ rej(err); }
-    );
-  });
+// ----------------- INTERIORS -----------------
+const fvInterior = new THREE.Group(); fvInterior.visible=false; scene.add(fvInterior);
+const fvFloor = new THREE.Mesh(new THREE.PlaneGeometry(8,10), LP(0x141212)); fvFloor.rotation.x = -Math.PI/2; fvInterior.add(fvFloor);
+// shelves
+for(let i=0;i<4;i++){
+  const s = lpBox(6.2,0.28,0.5, 0x2e2222); s.position.set(0,1.1 + i*0.6,-3.4); fvInterior.add(s);
 }
+// counter
+const counter = lpBox(2.4,0.9,0.8, 0x3a2b2b); counter.position.set(0,0.8,-1.5); fvInterior.add(counter);
 
-// apply photos function (reads UI inputs)
-async function applyPhotos(){
-  const fvUrl = document.getElementById('urlFamilyVideo').value.trim();
-  const c84Url = document.getElementById('url84cypress').value.trim();
-  const wesUrl = document.getElementById('urlWesco').value.trim();
-  const tasks = [
-    {key:'familyVideo', url:fvUrl},
-    {key:'84cypress', url:c84Url},
-    {key:'wesco', url:wesUrl}
-  ];
-  document.getElementById('applyStatus').textContent = 'Applying photos...';
-  for(const t of tasks){
-    if(!t.url){ document.getElementById('applyStatus').textContent = `Skipped ${t.key}: no URL`; continue; }
-    try{
-      const tex = await loadTexture(t.url);
-      // color-correct / tint to PS2 amber — we do a cheap tint by multiplying in shader using material.color
-      // find target façade
-      let target = null;
-      scene.traverse((o)=>{ if(o.parent && o.parent.userData && o.parent.userData.key === t.key && o.name === 'frontPlane') target = o; if(o.userData && o.userData.key===t.key && o.name==='frontPlane') target=o; });
-      // fallback search
-      if(!target){
-        if(t.key === 'familyVideo'){
-          target = fvG.getObjectByName('frontPlane');
-        } else if(t.key === '84cypress'){
-          target = b84.getObjectByName('frontPlane');
-        } else if(t.key === 'wesco'){
-          target = wescoG.getObjectByName('frontPlane');
-        }
-      }
-      if(!target) { document.getElementById('applyStatus').textContent = `Couldn't find target plane for ${t.key}`; continue; }
-      target.material.map = tex;
-      target.material.needsUpdate = true;
-      // subtle fake bump: create a normal map from luminance (cheap)
-      const canvas = document.createElement('canvas'); canvas.width = tex.image.width; canvas.height = tex.image.height;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(tex.image,0,0);
-      const id = ctx.getImageData(0,0,canvas.width,canvas.height);
-      // compute simple normal-ish grayscale -> normal via neighbor diff (cheap)
-      const normalCanvas = document.createElement('canvas'); normalCanvas.width = canvas.width; normalCanvas.height = canvas.height;
-      const nctx = normalCanvas.getContext('2d');
-      const out = nctx.createImageData(canvas.width, canvas.height);
-      for(let y=1;y<canvas.height-1;y++){
-        for(let x=1;x<canvas.width-1;x++){
-          const i = (y*canvas.width + x) * 4;
-          const lum = (id.data[i] + id.data[i+1] + id.data[i+2]) / 3 / 255;
-          const lumR = (id.data[i-4] + id.data[i-3] + id.data[i-2]) / 3 / 255;
-          const lumD = (id.data[i+canvas.width*4] + id.data[i+canvas.width*4+1] + id.data[i+canvas.width*4+2]) / 3 / 255;
-          const dx = (lumR - lum) * 0.5 + 0.5;
-          const dy = (lumD - lum) * 0.5 + 0.5;
-          const j = i;
-          out.data[j] = Math.floor(dx * 255);
-          out.data[j+1] = Math.floor(dy * 255);
-          out.data[j+2] = Math.floor(255 * 0.9);
-          out.data[j+3] = 255;
-        }
-      }
-      nctx.putImageData(out,0,0);
-      const normalTex = new THREE.CanvasTexture(normalCanvas);
-      normalTex.minFilter = THREE.LinearMipMapLinearFilter;
-      target.material.normalMap = normalTex;
-      target.material.needsUpdate = true;
-      document.getElementById('applyStatus').textContent = `Applied ${t.key}`;
-    }catch(err){
-      console.error('Texture load error', t.url, err);
-      document.getElementById('applyStatus').textContent = `Failed to load ${t.key} — CORS or 404. Try a different host.`;
-    }
+// ----------------- COLLISION system -----------------
+const colliders = []; // Box3 list
+function addCollider(mesh){
+  const box = new THREE.Box3().setFromObject(mesh);
+  colliders.push({mesh,box});
+}
+// add colliders for all façades and props
+[wesco, fv, b84, bench, mbox, bike].forEach(g=>{
+  // use the group's bounding box
+  const b = new THREE.Box3().setFromObject(g);
+  colliders.push({mesh:g, box:b});
+});
+
+// helper to test collision for a given camera position (camera treated as capsule/sphere)
+const playerRadius = 0.28;
+function collidesAt(pos){
+  const sphere = {center: pos.clone(), radius: playerRadius};
+  for(const c of colliders){
+    // expand box by -tiny and test sphere-box intersection (approx)
+    const box = c.box.clone();
+    // expand by small margin to avoid sticky
+    box.expandByScalar(-0.03);
+    if(sphereIntersectsBox(sphere, box)) return true;
   }
+  return false;
+}
+function sphereIntersectsBox(sphere, box){
+  // find closest point on box to sphere center
+  const x = Math.max(box.min.x, Math.min(sphere.center.x, box.max.x));
+  const y = Math.max(box.min.y, Math.min(sphere.center.y, box.max.y));
+  const z = Math.max(box.min.z, Math.min(sphere.center.z, box.max.z));
+  const dx = x - sphere.center.x;
+  const dy = y - sphere.center.y;
+  const dz = z - sphere.center.z;
+  return (dx*dx + dy*dy + dz*dz) <= (sphere.radius * sphere.radius);
 }
 
-// wire UI
-document.getElementById('applyBtn').addEventListener('click', applyPhotos);
+// ----------------- DIALOGUE & STORY -----------------
+const dialogBox = document.getElementById('dialogBox');
+const dialogSpeaker = document.getElementById('dialogSpeaker');
+const dialogText = document.getElementById('dialogText');
+let currentDialogue = null; let currentIndex = 0;
 
-// basic controls: pointer lock fallback + drag-look + movement
+const DIALOGS = {
+  familyVideo: [
+    {speaker:'Narrator', text:'The Family Video door is cold to the touch. Someone left the lights strangely half-on.'},
+    {speaker:'You', text:'You remember renting a terrible movie here once. You laugh, but the laugh stops halfway.'},
+    {speaker:'Voice', text:'(whisper) Did you bring the popcorn?'},
+    {speaker:'Narrator', text:'A bell tinkers somewhere. The shelves remember hands that no longer come.'}
+  ],
+  statue: [
+    {speaker:'Statue', text:'I once stood for a man who did a small good. Now I hold out nothing but air.'},
+    {speaker:'Echo', text:'You press your palm and the statue coughs a joke: "Why did the skeleton skip the movie? — No body to go with."'},
+    {speaker:'You', text:'You groan. It helps.'}
+  ],
+  ghost: [
+    {speaker:'Ghost', text:'(cheery) I used to work nights at the video store. Now I haunt the returns slot. Wanna hear a joke?'},
+    {speaker:'You', text:'Do I have a choice?'},
+    {speaker:'Ghost', text:'Why was the broom late to the movie? It over-swept.'},
+    {speaker:'You', text:'God that is awful.'},
+    {speaker:'Ghost', text:'Good. That means the haunting is working.'}
+  ],
+  ending: [
+    {speaker:'Narrator', text:'You stand under a streetlamp that hisses like a sleeping radio. The town is both remembered and changed.'},
+    {speaker:'Narrator', text:'It is not a scary ending — just the kind that smells like old cardboard and river water.'}
+  ]
+};
+
+function showDialog(key){
+  const seq = DIALOGS[key];
+  if(!seq) return;
+  currentDialogue = seq.slice();
+  currentIndex = 0;
+  dialogBox.style.display = 'block';
+  playDialogStep();
+}
+function playDialogStep(){
+  if(!currentDialogue) return;
+  if(currentIndex >= currentDialogue.length){ dialogBox.style.display='none'; currentDialogue=null; currentIndex=0; if(lastInteracted==='familyVideo') triggerEnding(); return; }
+  const it = currentDialogue[currentIndex++];
+  dialogSpeaker.textContent = it.speaker;
+  dialogText.textContent = it.text;
+}
+document.addEventListener('mousedown', e=>{ if(e.button===0 && dialogBox.style.display==='block') playDialogStep(); });
+
+// ----------------- SOUND SUGGESTION (tiny ambient oscillator) -----------------
+let audioCtx = null;
+function ensureAudio(){
+  if(audioCtx) return audioCtx;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  // create a subtle ambient drone / hum
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = 'sine'; o.frequency.value = 48; // low hum
+  g.gain.value = 0.0008;
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start();
+  // subtle noise for flicker
+  return audioCtx;
+}
+
+// ----------------- Controls: pointerlock fallback + drag-look -----------------
 class FallbackPointerLockControls extends THREE.EventDispatcher {
   constructor(camera, domElement){
     super();
-    this.camera = camera; this.domElement = domElement || document.body; this.isLocked=false;
+    this.camera = camera;
+    this.domElement = domElement || document.body;
+    this.isLocked = false;
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onPointerLockChange = this._onPointerLockChange.bind(this);
     document.addEventListener('pointerlockchange', this._onPointerLockChange);
   }
   lock(){ if(this.domElement.requestPointerLock) this.domElement.requestPointerLock(); }
   unlock(){ if(document.exitPointerLock) document.exitPointerLock(); }
-  _onPointerLockChange(){ if(document.pointerLockElement === this.domElement){ this.isLocked=true; this.domElement.addEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'lock'}); } else { this.isLocked=false; this.domElement.removeEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'unlock'}); } }
-  _onMouseMove(e){ if(!this.isLocked) return; const movementX = e.movementX||0; const movementY = e.movementY||0; const s = 0.0022; this.camera.rotation.y -= movementX*s; this.camera.rotation.x -= movementY*s; }
+  _onPointerLockChange(){
+    if(document.pointerLockElement === this.domElement){
+      this.isLocked = true; this.domElement.addEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'lock'});
+    } else {
+      this.isLocked = false; this.domElement.removeEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'unlock'});
+    }
+  }
+  _onMouseMove(e){
+    if(!this.isLocked) return;
+    const s = 0.0022;
+    const movementX = e.movementX||0, movementY = e.movementY||0;
+    // rotate camera quaternion using yaw/pitch
+    const q = new THREE.Quaternion();
+    const euler = new THREE.Euler(camera.rotation.x - movementY*s, camera.rotation.y - movementX*s, 0, 'YXZ');
+    q.setFromEuler(euler);
+    camera.quaternion.copy(q);
+  }
 }
 if(typeof THREE.PointerLockControls !== 'function') THREE.PointerLockControls = FallbackPointerLockControls;
 const controls = new THREE.PointerLockControls(camera, renderer.domElement);
-document.addEventListener('click', ()=>{ controls.lock(); });
-controls.addEventListener('lock', ()=>{ log('Pointer locked — WASD to move'); });
+document.addEventListener('click', ()=>{ controls.lock(); ensureAudio(); });
+controls.addEventListener('lock', ()=>{ log('Pointer locked. Use WASD to move.'); });
+controls.addEventListener('unlock', ()=>{ log('Pointer unlocked. Drag to look.'); });
 
-// simple drag-look fallback
-let dragging=false, lastMouse={x:0,y:0}, viewYaw=0, viewPitch=0;
-renderer.domElement.addEventListener('mousedown', (e)=>{ if(e.button===0){ dragging=true; lastMouse.x=e.clientX; lastMouse.y=e.clientY; } });
+// drag-look fallback
+let dragging=false,lastMouse={x:0,y:0}, viewYaw=0, viewPitch=0;
+renderer.domElement.addEventListener('mousedown', e=>{ if(e.button===0){ dragging=true; lastMouse.x=e.clientX; lastMouse.y=e.clientY; }});
 window.addEventListener('mouseup', ()=>{ dragging=false; });
-renderer.domElement.addEventListener('mousemove', (e)=>{ if(controls.isLocked) return; if(!dragging) return; const dx = e.clientX-lastMouse.x, dy = e.clientY-lastMouse.y; lastMouse.x=e.clientX; lastMouse.y=e.clientY; const s=0.0022; viewYaw -= dx*s; viewPitch -= dy*s; viewPitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, viewPitch)); camera.quaternion.setFromEuler(new THREE.Euler(viewPitch, viewYaw, 0, 'YXZ')); });
+renderer.domElement.addEventListener('mousemove', e=>{
+  if(controls.isLocked) return;
+  if(!dragging) return;
+  const dx = e.clientX - lastMouse.x, dy = e.clientY - lastMouse.y;
+  lastMouse.x = e.clientX; lastMouse.y = e.clientY;
+  const s = 0.0022; viewYaw -= dx*s; viewPitch -= dy*s;
+  viewPitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, viewPitch));
+  camera.quaternion.setFromEuler(new THREE.Euler(viewPitch, viewYaw, 0, 'YXZ'));
+});
 
-// movement
-const keys = {}; window.addEventListener('keydown', (e)=>{ keys[e.key.toLowerCase()] = true; if(e.key.toLowerCase()==='e') doInteract(); if(e.key.toLowerCase()==='r') toggleRide(); if(e.code==='Space') doPulse(); });
-window.addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()] = false; });
+// ----------------- Movement (INVERTED W/S) + collision handling -----------------
+const keys = {};
+window.addEventListener('keydown', e=>{ keys[e.key.toLowerCase()] = true; if(e.key.toLowerCase()==='e') interact(); if(e.key.toLowerCase()==='r') toggleRide(); if(e.code==='Space') pulse(); });
+window.addEventListener('keyup', e=>{ keys[e.key.toLowerCase()] = false; });
 
 let speed = 3.2, riding=false, bikeTarget=null;
-function toggleRide(){ if(!riding){ if(camera.position.distanceTo(bike.position) < 3.0){ riding=true; bikeTarget=bike; log('Mounted bike'); } else { log('Too far from bike'); } } else { riding=false; bikeTarget=null; log('Dismounted'); } }
-function doPulse(){ /* visual pulse can be added */ log('Pulse'); }
+function toggleRide(){ if(!riding){ if(camera.position.distanceTo(bike.position) < 3.0){ riding=true; bikeTarget=bike; log('You hop on the cruiser. R to dismount.'); camera.position.copy(bike.position).add(new THREE.Vector3(0,1.2,0.2)); } else { log('You are too far from the bike.'); } } else { riding=false; bikeTarget=null; log('You dismount the cruiser.'); } }
+function pulse(){ // subtle visual cue
+  log('A pulse moves through the street...');
+  scene.fog.near = Math.max(2, scene.fog.near - 2);
+  setTimeout(()=>{ scene.fog.near = 6; }, 900);
+}
 
-// simple interact (raycast center)
+// attemptMove applies movement with collision prevention
+function attemptMove(deltaPos){
+  const proposed = camera.position.clone().add(deltaPos);
+  // set player height
+  proposed.y = camera.position.y;
+  if(!collidesAt(proposed)){
+    camera.position.copy(proposed);
+    return true;
+  } else {
+    // try sliding on individual axes (naive)
+    const tryX = camera.position.clone().add(new THREE.Vector3(deltaPos.x,0,0));
+    if(!collidesAt(tryX)){ camera.position.copy(tryX); return true; }
+    const tryZ = camera.position.clone().add(new THREE.Vector3(0,0,deltaPos.z));
+    if(!collidesAt(tryZ)){ camera.position.copy(tryZ); return true; }
+    return false;
+  }
+}
+
+// ----------------- interaction raycast & triggers -----------------
 const ray = new THREE.Raycaster();
-function doInteract(){
+let lastInteracted = null;
+function interact(){
   ray.setFromCamera(new THREE.Vector2(0,0), camera);
   const hits = ray.intersectObjects(scene.children, true);
   if(hits.length){
     for(const h of hits){
       const obj = h.object;
-      if(obj.userData && obj.userData.isDoor === 'familyVideo'){ // toggle interior
-        if(!fvInterior.visible){ // enter
-          fvInterior.visible = true; fvG.visible = false; camera.position.set(0,1.6,1.5); camera.lookAt(0,1.6,-3);
-          log('Entered Family Video — the interior smells like old cardboard and fluorescent light.');
-        } else { fvInterior.visible=false; fvG.visible=true; camera.position.set(6,1.7,-1.5); camera.lookAt(6,1.7,-3.5); log('Exited Family Video.'); }
+      // door plane check
+      if(obj.userData && obj.userData.isDoor === 'familyVideo'){
+        if(!fvInterior.visible){ enterFamilyVideo(); } else { exitFamilyVideo(); }
         return;
       }
-      // ride bike if hit
-      if(obj.parent && obj.parent.userData && obj.parent.userData.key === 'bike' || obj.userData.key === 'bike'){
-        toggleRide(); return;
-      }
+      // group keyed 'familyVideo' - show dialog
+      const g = findKeyParent(obj);
+      if(g === 'familyVideo'){ lastInteracted = 'familyVideo'; showDialog('familyVideo'); return; }
+      if(g === 'wesco'){ log('Wesco looks closed but the sign hums'); showDialog('ghost'); return; }
+      if(g === 'statue'){ showDialog('statue'); return; }
+      // bike toggle
+      if(obj.userData && obj.userData.key === 'bike' || (obj.parent && obj.parent.userData && obj.parent.userData.key === 'bike')){ toggleRide(); return; }
     }
   }
 }
+function findKeyParent(obj){
+  if(!obj) return null;
+  if(obj.parent && obj.parent.userData && obj.parent.userData.key) return obj.parent.userData.key;
+  if(obj.userData && obj.userData.key) return obj.userData.key;
+  if(obj.parent) return findKeyParent(obj.parent);
+  return null;
+}
 
-// animation loop
+// enter / exit Family Video
+function enterFamilyVideo(){
+  fv.visible = false; fvInterior.visible = true;
+  camera.position.set(0,1.6,1.5); camera.lookAt(new THREE.Vector3(0,1.6,-3));
+  log('You step into Family Video — fluorescent light and dust.');
+  showDialog('familyVideo');
+}
+function exitFamilyVideo(){
+  fv.visible = true; fvInterior.visible = false;
+  camera.position.set(6,1.7,-1.5); camera.lookAt(new THREE.Vector3(6,1.7,-3.5));
+  log('You step back onto Cypress Street.');
+}
+
+// ----------------- ghost NPC (funny) -----------------
+const ghost = lpBox(0.8,1.2,0.2, 0xa6d9ff); ghost.position.set(8,0.8,-4); ghost.material.transparent = true; ghost.material.opacity = 0.75; world.add(ghost);
+ghost.userData.key='ghost';
+colliders.push({mesh:ghost, box:new THREE.Box3().setFromObject(ghost)});
+
+// if player approaches ghost, it tells a joke once
+let ghostTold = false;
+
+// ----------------- animation loop -----------------
 let prev = performance.now();
 function animate(){
   const now = performance.now();
-  const dt = (now - prev) / 1000; prev = now;
-  // movement always enabled
-  const forward = (keys['w']?1:0) - (keys['s']?1:0);
+  const dt = (now - prev)/1000; prev = now;
+
+  // flicker lamps (mood)
+  lamps.forEach((p,i)=>{ p.intensity = 0.6 + Math.sin(now*0.004 + i) * 0.3 * (Math.random()*0.2+0.8); });
+
+  // ghost idle float
+  ghost.position.y = 0.8 + Math.sin(now*0.002) * 0.12;
+  // update collider
+  colliders.forEach(c=> c.box.setFromObject(c.mesh));
+
+  // movement - INVERTED: W backward, S forward
+  const forward = (keys['s']?1:0) - (keys['w']?1:0); // note: s gives +1 forward, w gives -1 forward => inverted
   const strafe = (keys['d']?1:0) - (keys['a']?1:0);
-  const moveDir = new THREE.Vector3(strafe,0,forward);
-  if(moveDir.lengthSq()>0){
-    moveDir.normalize();
+  const dir = new THREE.Vector3(strafe,0,forward);
+  if(dir.lengthSq() > 0){
+    dir.normalize();
     if(riding && bikeTarget){
-      const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y = 0; camDir.normalize();
+      const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y=0; camDir.normalize();
       bikeTarget.position.addScaledVector(camDir, speed * 1.5 * dt);
       camera.position.copy(bikeTarget.position).add(new THREE.Vector3(0,1.2,0.2));
+      bikeTarget.rotation.y = Math.atan2(camDir.x, camDir.z);
     } else {
-      const q = camera.quaternion;
-      const move = moveDir.applyQuaternion(q).multiplyScalar(speed * dt);
-      camera.position.add(new THREE.Vector3(move.x,0,move.z));
+      // move relative to camera rotation
+      const move = dir.applyQuaternion(camera.quaternion).multiplyScalar(speed * dt);
+      attemptMove(move);
     }
   }
+
+  // ghost proximity joke
+  if(!ghostTold && camera.position.distanceTo(ghost.position) < 3.0){
+    ghostTold = true;
+    showDialog('ghost');
+  }
+
+  // update HUD log position
+  document.getElementById('pos')?.remove();
   renderer.render(scene, camera);
   requestAnimationFrame(animate);
 }
 animate();
 
-// responsive
-window.addEventListener('resize', ()=>{ resizeRenderer(); });
+// ----------------- add small interactable statue (funny) -----------------
+const statue = lpBox(0.8,1.6,0.4,0x7d6e6e); statue.position.set(10,0.8,2); statue.userData.key='statue'; world.add(statue);
+colliders.push({mesh:statue, box:new THREE.Box3().setFromObject(statue)});
 
-// small helper: try-to-auto-load sample candidate images (commented for manual use)
-/*
-Sample pages I referenced (open them, right-click image -> copy image address):
-- Manistee Family Video article: https://www.manisteenews.com/local-news/article/Manistee-Family-Video-to-close-after-25-years-15714202.php
-- 84 Cypress listing (MLS/Realty): https://www.golighthouserealty.com/commercial-for-sale/84-Cypress-Street-Manistee-MI-49660-383657175
-- Wesco / Yelp: https://www.yelp.com/biz/wesco-manistee
-*/
+// ensure colliders include facades for runtime (update earlier boxes)
+[wesco, fv, b84].forEach(g=>{
+  colliders.push({mesh:g, box:new THREE.Box3().setFromObject(g)});
+});
+
+// ----------------- quick debug helpers -----------------
+window.addEventListener('keydown', e=>{
+  if(e.key === 'l'){ // toggle low fog
+    if(scene.fog.near < 5){ scene.fog.near = 6; scene.fog.far = 45; log('Fog normal'); }
+    else { scene.fog.near = 2; scene.fog.far = 25; log('Fog dense'); }
+  }
+});
+
+// auto-interact on click center if not locked (preview friendly)
+renderer.domElement.addEventListener('click', (ev)=>{
+  if(!controls.isLocked) { // try interact center
+    interact();
+  }
+});
+
+// ----------------- finishing touches -----------------
+log('Low-poly horror loaded. Explore Cypress Street. Interact with E. Family Video is enterable. Ghost is nearby :)');
 
 </script>
 </body>
