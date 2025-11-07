@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Cypress Street — Photo-mapped PS2 Dream Sandbox (Hotlink UI)</title>
+<style>
+  html,body{height:100%;margin:0;background:#060510;overflow:hidden;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;color:#E8F6FF}
+  #ui {
+    position:fixed;left:12px;top:12px;z-index:60;background:rgba(2,6,12,0.72);padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);
+    color:#d8eaf2;font-size:13px;width:360px;max-height:86vh;overflow:auto;
+  }
+  #ui h2{margin:0 0 6px 0;font-size:14px}
+  label{display:block;margin-top:6px;font-size:12px;color:#bcd}
+  input[type="text"]{width:100%;padding:6px;border-radius:6px;border:1px solid #2b2b2b;background:#0b0b10;color:#e8f6ff;box-sizing:border-box}
+  button{margin-top:8px;padding:8px 10px;border-radius:6px;border:none;background:#7dd3fc;color:#012;cursor:pointer}
+  #canvasWrap{position:fixed;left:0;top:0;width:100%;height:100%;display:block;z-index:0}
+  canvas{ image-rendering: pixelated; display:block; }
+  a.ref{color:#ffdca3;font-size:12px}
+  #applyStatus{font-size:12px;margin-top:6px;color:#ffdca3}
+  #help{font-size:12px;color:#9ecfe6;margin-top:6px}
+  #credits{position:fixed;right:12px;bottom:12px;color:#7da8b8;font-size:12px;z-index:60}
+</style>
+</head>
+<body>
+<div id="ui">
+  <h2>Cypress Street — Photo mapping</h2>
+  <div>Paste direct image URLs (hotlinks) for the facades you want mapped. If a link fails due to CORS, try copying image to an image-host (imgur) or use the "Fetch sample" links below to manually open the source image and copy link.</div>
+
+  <label>Family Video front (recommended: archived storefront photo / news image)</label>
+  <input id="urlFamilyVideo" type="text" placeholder="https://.../familyvideo-front.jpg"/>
+
+  <label>84 Cypress façade (hardware block)</label>
+  <input id="url84cypress" type="text" placeholder="https://.../84-cypress.jpg"/>
+
+  <label>WESCO sign / storefront</label>
+  <input id="urlWesco" type="text" placeholder="https://.../wesco.jpg"/>
+
+  <button id="applyBtn">Apply Photos</button>
+  <div id="applyStatus"></div>
+
+  <div id="help">
+    <b>Quick fetch / references</b>
+    <div style="margin-top:6px">
+      Family Video article (open then copy image): <a class="ref" href="https://www.manisteenews.com/local-news/article/Manistee-Family-Video-to-close-after-25-years-15714202.php" target="_blank">ManisteeNews — Family Video close</a>
+    </div>
+    <div style="margin-top:6px">
+      84 Cypress listing (has photos): <a class="ref" href="https://www.golighthouserealty.com/commercial-for-sale/84-Cypress-Street-Manistee-MI-49660-383657175" target="_blank">MLS / listing — 84 Cypress</a>
+    </div>
+    <div style="margin-top:6px">
+      Wesco storefront references: <a class="ref" href="https://www.yelp.com/biz/wesco-manistee" target="_blank">Wesco Manistee — Yelp / photos</a>
+    </div>
+
+    <div style="margin-top:10px;color:#d8eaf2">If you want, paste these URLs here and press Apply. If hotlink fails due to CORS, upload image to <code>imgur.com</code> or another host and paste that link instead.</div>
+  </div>
+</div>
+
+<div id="canvasWrap"></div>
+<div id="credits">Built: PS2 dream — mapping UI • Hotlink mode</div>
+
+<!-- Three.js -->
+<script src="https://unpkg.com/three@0.154.0/build/three.min.js"></script>
+
+<script>
+/* ========= Core scene (PS2 sandbox) ========= */
+// logging helper
+function log(s){ const el=document.getElementById('applyStatus'); el.textContent = s; }
+
+// renderer + pixel scale to get PS2 feel
+const container = document.getElementById('canvasWrap');
+const pixelScale = 0.55;
+const canvas = document.createElement('canvas');
+canvas.style.width = window.innerWidth + 'px';
+canvas.style.height = window.innerHeight + 'px';
+canvas.style.imageRendering = 'pixelated';
+container.appendChild(canvas);
+const renderer = new THREE.WebGLRenderer({antialias:false, canvas:canvas});
+renderer.setClearColor(0x060510, 1);
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x060510, 12, 80);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 500);
+camera.position.set(0,1.6,6);
+
+function resizeRenderer(){
+  const w = Math.max(1, Math.floor(window.innerWidth * pixelScale));
+  const h = Math.max(1, Math.floor(window.innerHeight * pixelScale));
+  renderer.setSize(w,h,false);
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+resizeRenderer();
+
+// basic lighting
+const hemi = new THREE.HemisphereLight(0xffd8b8, 0x22334a, 0.6); scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xffcda0, 0.7); dir.position.set(-5,10,3); scene.add(dir);
+const ambient = new THREE.AmbientLight(0x202030, 0.4); scene.add(ambient);
+
+// ground
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200,200), new THREE.MeshStandardMaterial({color:0x19202a, roughness:1}));
+ground.rotation.x = -Math.PI/2; ground.position.y = 0; scene.add(ground);
+const road = new THREE.Mesh(new THREE.PlaneGeometry(80,8), new THREE.MeshStandardMaterial({color:0x222831, roughness:1}));
+road.rotation.x = -Math.PI/2; road.position.set(0,0.01,0); scene.add(road);
+
+// helper: create a simple building plane for mapping
+function makeFaçade(w,h,baseColor){
+  const g = new THREE.Group();
+  const box = new THREE.Mesh(new THREE.BoxGeometry(w,h,0.6), new THREE.MeshStandardMaterial({color:baseColor, roughness:1}));
+  g.add(box);
+  // add a front plane for textures (slightly offset)
+  const frontPlane = new THREE.Mesh(new THREE.PlaneGeometry(w-0.18, h-0.18), new THREE.MeshStandardMaterial({color:0xffffff}));
+  frontPlane.position.set(0,0,0.31);
+  frontPlane.name = 'frontPlane';
+  g.add(frontPlane);
+  return g;
+}
+
+// basic street objects
+const streetGroup = new THREE.Group();
+scene.add(streetGroup);
+
+// WESCO block
+const wescoG = makeFaçade(6,3.6,0x4a4f57);
+wescoG.position.set(-10,1.8,-5);
+wescoG.userData.key = 'wesco';
+streetGroup.add(wescoG);
+
+// Family Video block (enterable)
+const fvG = makeFaçade(7,3.5,0x3b2b38);
+fvG.position.set(6,1.75,-2);
+fvG.userData.key = 'familyVideo';
+streetGroup.add(fvG);
+// doorway marker (we'll use to enter)
+const fvDoor = new THREE.Mesh(new THREE.PlaneGeometry(1,1.9), new THREE.MeshBasicMaterial({color:0x111111}));
+fvDoor.position.set(6,0.95,-2.31);
+fvDoor.userData.isDoor = 'familyVideo';
+scene.add(fvDoor);
+
+// 84 Cypress facade
+const b84 = makeFaçade(12,4.2,0x3f3f3f);
+b84.position.set(14,2.1,-6);
+b84.userData.key = '84cypress';
+streetGroup.add(b84);
+
+// small props (bike, bench)
+const bench = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.35,0.5), new THREE.MeshStandardMaterial({color:0x5a3b2b}));
+bench.position.set(2,0.2,-6.5); scene.add(bench);
+
+const bike = new THREE.Group();
+const body = new THREE.Mesh(new THREE.BoxGeometry(1.2,0.12,0.3), new THREE.MeshStandardMaterial({color:0x175f4f}));
+body.position.set(0.1,0.6,0); bike.add(body);
+const wheelL = new THREE.Mesh(new THREE.TorusGeometry(0.35,0.06,8,16), new THREE.MeshStandardMaterial({color:0x111})); wheelL.rotation.x = Math.PI/2; wheelL.position.set(0.5,0.35,0); bike.add(wheelL);
+const wheelR = wheelL.clone(); wheelR.position.set(-0.6,0.35,0); bike.add(wheelR);
+bike.position.set(-3,0,-4); bike.userData.key='bike'; scene.add(bike);
+
+// Family Video interior (simple, hidden)
+const fvInterior = new THREE.Group(); fvInterior.visible=false; fvInterior.position.set(0,0,0);
+const fvFloor = new THREE.Mesh(new THREE.PlaneGeometry(8,10), new THREE.MeshStandardMaterial({color:0x1b1416}));
+fvFloor.rotation.x = -Math.PI/2; fvInterior.add(fvFloor);
+scene.add(fvInterior);
+
+// texture loader helper with CORS error handling
+const loader = new THREE.TextureLoader();
+loader.crossOrigin = '';// allow crossOrigin where possible
+
+async function loadTexture(url){
+  return new Promise((res, rej)=>{
+    loader.load(url,
+      (tex)=>{ tex.minFilter = THREE.LinearMipMapLinearFilter; tex.magFilter = THREE.NearestFilter; res(tex); },
+      undefined,
+      (err)=>{ rej(err); }
+    );
+  });
+}
+
+// apply photos function (reads UI inputs)
+async function applyPhotos(){
+  const fvUrl = document.getElementById('urlFamilyVideo').value.trim();
+  const c84Url = document.getElementById('url84cypress').value.trim();
+  const wesUrl = document.getElementById('urlWesco').value.trim();
+  const tasks = [
+    {key:'familyVideo', url:fvUrl},
+    {key:'84cypress', url:c84Url},
+    {key:'wesco', url:wesUrl}
+  ];
+  document.getElementById('applyStatus').textContent = 'Applying photos...';
+  for(const t of tasks){
+    if(!t.url){ document.getElementById('applyStatus').textContent = `Skipped ${t.key}: no URL`; continue; }
+    try{
+      const tex = await loadTexture(t.url);
+      // color-correct / tint to PS2 amber — we do a cheap tint by multiplying in shader using material.color
+      // find target façade
+      let target = null;
+      scene.traverse((o)=>{ if(o.parent && o.parent.userData && o.parent.userData.key === t.key && o.name === 'frontPlane') target = o; if(o.userData && o.userData.key===t.key && o.name==='frontPlane') target=o; });
+      // fallback search
+      if(!target){
+        if(t.key === 'familyVideo'){
+          target = fvG.getObjectByName('frontPlane');
+        } else if(t.key === '84cypress'){
+          target = b84.getObjectByName('frontPlane');
+        } else if(t.key === 'wesco'){
+          target = wescoG.getObjectByName('frontPlane');
+        }
+      }
+      if(!target) { document.getElementById('applyStatus').textContent = `Couldn't find target plane for ${t.key}`; continue; }
+      target.material.map = tex;
+      target.material.needsUpdate = true;
+      // subtle fake bump: create a normal map from luminance (cheap)
+      const canvas = document.createElement('canvas'); canvas.width = tex.image.width; canvas.height = tex.image.height;
+      const ctx = canvas.getContext('2d'); ctx.drawImage(tex.image,0,0);
+      const id = ctx.getImageData(0,0,canvas.width,canvas.height);
+      // compute simple normal-ish grayscale -> normal via neighbor diff (cheap)
+      const normalCanvas = document.createElement('canvas'); normalCanvas.width = canvas.width; normalCanvas.height = canvas.height;
+      const nctx = normalCanvas.getContext('2d');
+      const out = nctx.createImageData(canvas.width, canvas.height);
+      for(let y=1;y<canvas.height-1;y++){
+        for(let x=1;x<canvas.width-1;x++){
+          const i = (y*canvas.width + x) * 4;
+          const lum = (id.data[i] + id.data[i+1] + id.data[i+2]) / 3 / 255;
+          const lumR = (id.data[i-4] + id.data[i-3] + id.data[i-2]) / 3 / 255;
+          const lumD = (id.data[i+canvas.width*4] + id.data[i+canvas.width*4+1] + id.data[i+canvas.width*4+2]) / 3 / 255;
+          const dx = (lumR - lum) * 0.5 + 0.5;
+          const dy = (lumD - lum) * 0.5 + 0.5;
+          const j = i;
+          out.data[j] = Math.floor(dx * 255);
+          out.data[j+1] = Math.floor(dy * 255);
+          out.data[j+2] = Math.floor(255 * 0.9);
+          out.data[j+3] = 255;
+        }
+      }
+      nctx.putImageData(out,0,0);
+      const normalTex = new THREE.CanvasTexture(normalCanvas);
+      normalTex.minFilter = THREE.LinearMipMapLinearFilter;
+      target.material.normalMap = normalTex;
+      target.material.needsUpdate = true;
+      document.getElementById('applyStatus').textContent = `Applied ${t.key}`;
+    }catch(err){
+      console.error('Texture load error', t.url, err);
+      document.getElementById('applyStatus').textContent = `Failed to load ${t.key} — CORS or 404. Try a different host.`;
+    }
+  }
+}
+
+// wire UI
+document.getElementById('applyBtn').addEventListener('click', applyPhotos);
+
+// basic controls: pointer lock fallback + drag-look + movement
+class FallbackPointerLockControls extends THREE.EventDispatcher {
+  constructor(camera, domElement){
+    super();
+    this.camera = camera; this.domElement = domElement || document.body; this.isLocked=false;
+    this._onMouseMove = this._onMouseMove.bind(this);
+    this._onPointerLockChange = this._onPointerLockChange.bind(this);
+    document.addEventListener('pointerlockchange', this._onPointerLockChange);
+  }
+  lock(){ if(this.domElement.requestPointerLock) this.domElement.requestPointerLock(); }
+  unlock(){ if(document.exitPointerLock) document.exitPointerLock(); }
+  _onPointerLockChange(){ if(document.pointerLockElement === this.domElement){ this.isLocked=true; this.domElement.addEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'lock'}); } else { this.isLocked=false; this.domElement.removeEventListener('mousemove', this._onMouseMove); this.dispatchEvent({type:'unlock'}); } }
+  _onMouseMove(e){ if(!this.isLocked) return; const movementX = e.movementX||0; const movementY = e.movementY||0; const s = 0.0022; this.camera.rotation.y -= movementX*s; this.camera.rotation.x -= movementY*s; }
+}
+if(typeof THREE.PointerLockControls !== 'function') THREE.PointerLockControls = FallbackPointerLockControls;
+const controls = new THREE.PointerLockControls(camera, renderer.domElement);
+document.addEventListener('click', ()=>{ controls.lock(); });
+controls.addEventListener('lock', ()=>{ log('Pointer locked — WASD to move'); });
+
+// simple drag-look fallback
+let dragging=false, lastMouse={x:0,y:0}, viewYaw=0, viewPitch=0;
+renderer.domElement.addEventListener('mousedown', (e)=>{ if(e.button===0){ dragging=true; lastMouse.x=e.clientX; lastMouse.y=e.clientY; } });
+window.addEventListener('mouseup', ()=>{ dragging=false; });
+renderer.domElement.addEventListener('mousemove', (e)=>{ if(controls.isLocked) return; if(!dragging) return; const dx = e.clientX-lastMouse.x, dy = e.clientY-lastMouse.y; lastMouse.x=e.clientX; lastMouse.y=e.clientY; const s=0.0022; viewYaw -= dx*s; viewPitch -= dy*s; viewPitch = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, viewPitch)); camera.quaternion.setFromEuler(new THREE.Euler(viewPitch, viewYaw, 0, 'YXZ')); });
+
+// movement
+const keys = {}; window.addEventListener('keydown', (e)=>{ keys[e.key.toLowerCase()] = true; if(e.key.toLowerCase()==='e') doInteract(); if(e.key.toLowerCase()==='r') toggleRide(); if(e.code==='Space') doPulse(); });
+window.addEventListener('keyup', (e)=>{ keys[e.key.toLowerCase()] = false; });
+
+let speed = 3.2, riding=false, bikeTarget=null;
+function toggleRide(){ if(!riding){ if(camera.position.distanceTo(bike.position) < 3.0){ riding=true; bikeTarget=bike; log('Mounted bike'); } else { log('Too far from bike'); } } else { riding=false; bikeTarget=null; log('Dismounted'); } }
+function doPulse(){ /* visual pulse can be added */ log('Pulse'); }
+
+// simple interact (raycast center)
+const ray = new THREE.Raycaster();
+function doInteract(){
+  ray.setFromCamera(new THREE.Vector2(0,0), camera);
+  const hits = ray.intersectObjects(scene.children, true);
+  if(hits.length){
+    for(const h of hits){
+      const obj = h.object;
+      if(obj.userData && obj.userData.isDoor === 'familyVideo'){ // toggle interior
+        if(!fvInterior.visible){ // enter
+          fvInterior.visible = true; fvG.visible = false; camera.position.set(0,1.6,1.5); camera.lookAt(0,1.6,-3);
+          log('Entered Family Video — the interior smells like old cardboard and fluorescent light.');
+        } else { fvInterior.visible=false; fvG.visible=true; camera.position.set(6,1.7,-1.5); camera.lookAt(6,1.7,-3.5); log('Exited Family Video.'); }
+        return;
+      }
+      // ride bike if hit
+      if(obj.parent && obj.parent.userData && obj.parent.userData.key === 'bike' || obj.userData.key === 'bike'){
+        toggleRide(); return;
+      }
+    }
+  }
+}
+
+// animation loop
+let prev = performance.now();
+function animate(){
+  const now = performance.now();
+  const dt = (now - prev) / 1000; prev = now;
+  // movement always enabled
+  const forward = (keys['w']?1:0) - (keys['s']?1:0);
+  const strafe = (keys['d']?1:0) - (keys['a']?1:0);
+  const moveDir = new THREE.Vector3(strafe,0,forward);
+  if(moveDir.lengthSq()>0){
+    moveDir.normalize();
+    if(riding && bikeTarget){
+      const camDir = new THREE.Vector3(); camera.getWorldDirection(camDir); camDir.y = 0; camDir.normalize();
+      bikeTarget.position.addScaledVector(camDir, speed * 1.5 * dt);
+      camera.position.copy(bikeTarget.position).add(new THREE.Vector3(0,1.2,0.2));
+    } else {
+      const q = camera.quaternion;
+      const move = moveDir.applyQuaternion(q).multiplyScalar(speed * dt);
+      camera.position.add(new THREE.Vector3(move.x,0,move.z));
+    }
+  }
+  renderer.render(scene, camera);
+  requestAnimationFrame(animate);
+}
+animate();
+
+// responsive
+window.addEventListener('resize', ()=>{ resizeRenderer(); });
+
+// small helper: try-to-auto-load sample candidate images (commented for manual use)
+/*
+Sample pages I referenced (open them, right-click image -> copy image address):
+- Manistee Family Video article: https://www.manisteenews.com/local-news/article/Manistee-Family-Video-to-close-after-25-years-15714202.php
+- 84 Cypress listing (MLS/Realty): https://www.golighthouserealty.com/commercial-for-sale/84-Cypress-Street-Manistee-MI-49660-383657175
+- Wesco / Yelp: https://www.yelp.com/biz/wesco-manistee
+*/
+
+</script>
+</body>
+</html>
